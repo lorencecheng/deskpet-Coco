@@ -30,7 +30,7 @@ An open-source, always-on-top **desktop pet** that lives on your computer screen
 - **Status bubbles** — Coco tells you when it's **hungry / dirty / sleepy / bored** with a speech bubble, a small icon above its head, and a status panel; it also replies with a playful line after each interaction.
 - **Small footprint** — sized ~40% smaller than the original so it doesn't crowd your desktop.
 - **Lightweight** — built on Electron with a frameless transparent window; low resource usage.
-- **🎨 Skin Workshop** — restyle without drawing: pick a preset (orange / black / white / blue-gray / cream / calico) or drag sliders to tune **fur & blush** colors. The pixel art, limbs, and props (bowl / noodles / coffee mug) always stay intact. Copy a **color code** and send it to a friend — they paste it and get the exact same cat (social cat-sharing!).
+- **🎨 Skin Workshop** — restyle without drawing: pick a preset (orange / black / white / cream / gray / tabby-brown / calico — all real, existing cat colors) or pick a custom **fur** color. The pixel art, limbs, pink blush, and props (bowl / noodles / coffee mug) always stay intact. Copy a **color code** and send it to a friend — they paste it and get the exact same cat (social cat-sharing!).
 - **Fully customizable** — sprites live in `assets/sprites/<state>/frame-N.png`; swap images to restyle without touching code.
 
 ## 🧠 How do you know what Coco wants?
@@ -113,14 +113,14 @@ assets/sprites/
 
 ## 🎨 Skin Workshop (restyle without drawing)
 
-Open the palette panel via **🎨 Skin Workshop** in the right-click menu. Restyling only changes the cat's **fur / blush** colors — the pixel art, limbs, and any props in its paws (bowl, noodles, coffee mug) are all preserved.
+Open the palette panel via **🎨 Skin Workshop** in the right-click menu. Restyling only changes the cat's **fur** color — the pixel art, limbs, the pink blush/heart, and any props in its paws (bowl, noodles, coffee mug) are all preserved. Presets are all real, existing cat coat colors (no unrealistic blue/green cats).
 
-- **Presets**: 🟠 Orange (default) · ⚫ Black · ⚪ White · 🔵 Blue-gray · 🟡 Cream · 🌸 Calico
+- **Presets**: 🟠 Orange · ⚫ Black · ⚪ White · 🟡 Cream · 🐭 Gray · 🟤 Tabby-brown · 🧡 Calico
 - **Custom palette**: drag the "Fur" and "Blush" color pickers for live preview
 - **🎲 Random**: one-click random fur colors, fun to play with
 - **❤️ My palette**: save and instantly switch back to your latest custom scheme
 - **↩ Reset to orange**: back to the classic orange cat anytime
-- **Color-code sharing**: copy the code (e.g. `coco#f6a64b#ffb3b3`) from the panel; a friend pastes it in their own Coco to get the identical cat. Perfect for sharing on social feeds — let's pass the cat around!
+- **Color-code sharing**: copy the code (e.g. `coco#f6a64b`) from the panel; a friend pastes it in their own Coco to get the identical cat. Perfect for sharing on social feeds — let's pass the cat around!
 
 > The scheme is saved locally (`localStorage`) and persists across restarts.
 

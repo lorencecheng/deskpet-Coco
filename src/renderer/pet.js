@@ -178,14 +178,15 @@
   // 并保留原像素的明暗关系（阴影/条纹自然迁移到新毛色），道具色（碗/面条/杯）与
   // 黑色轮廓完全不动，保证像素锐利、四肢正确。
   const PRESETS = {
-    orange: { fur: '#f6a64b', cheek: '#ffb3b3' },
-    black:  { fur: '#3f3f46', cheek: '#ff9a9a' },
-    white:  { fur: '#e7e3da', cheek: '#ffc2c2' },
-    blue:   { fur: '#8ba2c9', cheek: '#ff9ecf' },
-    cream:  { fur: '#f0d9a5', cheek: '#ffb3b3' },
-    calico: { fur: '#d98a5b', cheek: '#ffb3b3' }
+    orange: { fur: '#f6a64b' },
+    black:  { fur: '#3a3741' },
+    white:  { fur: '#f6f0e2' },
+    cream:  { fur: '#f4d9a8' },
+    gray:   { fur: '#9698a0' },
+    brown:  { fur: '#a47046' },
+    calico: { fur: '#dd8c52' }
   };
-  let skinScheme = { active: false, fur: PRESETS.orange.fur, cheek: PRESETS.orange.cheek };
+  let skinScheme = { active: false, fur: PRESETS.orange.fur };
   let lastCustom = null;
   let recolorCache = {};
   let recolorPending = {};
@@ -193,7 +194,6 @@
 
   const skinPanel = document.getElementById('skinPanel');
   const skinFur = document.getElementById('skinFur');
-  const skinCheek = document.getElementById('skinCheek');
   const skinCode = document.getElementById('skinCode');
 
   function hexToRgb(h) { h = h.replace('#', ''); const n = parseInt(h, 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
@@ -258,24 +258,21 @@
       const { cv, ctx } = await loadBitmap(`${SPRITE_BASE}/core/frame-1.png`);
       const img = ctx.getImageData(0, 0, cv.width, cv.height);
       const d = img.data;
-      let sum = [0, 0, 0], n = 0, sumS = [0, 0, 0], ns = 0, sumC = [0, 0, 0], nc = 0;
+      let sum = [0, 0, 0], n = 0, sumS = [0, 0, 0], ns = 0;
       for (let i = 0; i < d.length; i += 4) {
         const a = d[i + 3]; if (a < 128) continue;
         const [h, s, l] = rgbToHsl([d[i], d[i + 1], d[i + 2]]);
         if (h >= 8 && h <= 46 && s > 0.22 && l > 0.22 && l < 0.9) { // 毛色 + 条纹（同属橘色系）
           if (l < 0.55) { sumS[0] += d[i]; sumS[1] += d[i + 1]; sumS[2] += d[i + 2]; ns++; }
           else { sum[0] += d[i]; sum[1] += d[i + 1]; sum[2] += d[i + 2]; n++; }
-        } else if ((h >= 320 || h <= 14) && s > 0.3 && l > 0.45) { // 腮红 / 耳内粉
-          sumC[0] += d[i]; sumC[1] += d[i + 1]; sumC[2] += d[i + 2]; nc++;
         }
       }
       furPalette = {
         base: n ? [Math.round(sum[0] / n), Math.round(sum[1] / n), Math.round(sum[2] / n)] : null,
-        stripe: ns ? [Math.round(sumS[0] / ns), Math.round(sumS[1] / ns), Math.round(sumS[2] / ns)] : null,
-        cheek: nc ? [Math.round(sumC[0] / nc), Math.round(sumC[1] / nc), Math.round(sumC[2] / nc)] : null
+        stripe: ns ? [Math.round(sumS[0] / ns), Math.round(sumS[1] / ns), Math.round(sumS[2] / ns)] : null
       };
     } catch {
-      furPalette = { base: [230, 160, 70], stripe: [190, 110, 40], cheek: [255, 180, 180] };
+      furPalette = { base: [230, 160, 70], stripe: [190, 110, 40] };
     }
     return furPalette;
   }
@@ -291,16 +288,15 @@
         const img = ctx.getImageData(0, 0, cv.width, cv.height);
         const d = img.data;
         const furRgb = hexToRgb(skinScheme.fur);
-        const cheekRgb = hexToRgb(skinScheme.cheek);
         const stripeFactor = (pal.base && pal.stripe) ? lum(pal.stripe) / Math.max(1, lum(pal.base)) : 0.7;
         const stripeRgb = scaleLightness(furRgb, stripeFactor);
         for (let i = 0; i < d.length; i += 4) {
           const a = d[i + 3]; if (a < 128) continue;
           const p = [d[i], d[i + 1], d[i + 2]];
-          // 色相门控：只染橘色系本体像素（约 [8,42]），道具色（黄面/白碗/咖啡杯）不参与
+          // 色相门控：只染橘色系本体像素（约 [8,42]），道具色（黄面/白碗/咖啡杯）与
+          // 粉色腮红/心形都保留原样，不做改动
           const hh = rgbToHsl(p)[0];
           const inFurHue = hh >= 8 && hh <= 42;
-          if (pal.cheek && rgbDist(p, pal.cheek) < 50) { d[i] = cheekRgb[0]; d[i + 1] = cheekRgb[1]; d[i + 2] = cheekRgb[2]; continue; }
           if (pal.base && inFurHue && rgbDist(p, pal.base) < 60) {
             const f = lum(p) / Math.max(1, lum(pal.base));
             const c = scaleLightness(furRgb, f); d[i] = c[0]; d[i + 1] = c[1]; d[i + 2] = c[2]; continue;
@@ -336,7 +332,7 @@
     } catch {}
     try {
       const c = JSON.parse(localStorage.getItem('coco.skin.custom'));
-      if (c && typeof c === 'object' && c.fur && c.cheek) lastCustom = c;
+      if (c && typeof c === 'object' && c.fur) lastCustom = { fur: c.fur };
     } catch {}
   }
 
@@ -344,7 +340,6 @@
     skinScheme.active = !!(scheme && scheme.active !== false);
     if (skinScheme.active) {
       skinScheme.fur = scheme.fur || PRESETS.orange.fur;
-      skinScheme.cheek = scheme.cheek || PRESETS.orange.cheek;
     }
     recolorCache = {};
     persistSkin();
@@ -366,15 +361,15 @@
 
   function syncSkinInputs() {
     skinFur.value = skinScheme.active ? skinScheme.fur : PRESETS.orange.fur;
-    skinCheek.value = skinScheme.active ? skinScheme.cheek : PRESETS.orange.cheek;
   }
   function updateSkinCode() {
-    skinCode.value = skinScheme.active ? `coco#${skinScheme.fur.replace('#', '')}#${skinScheme.cheek.replace('#', '')}` : 'coco#f6a64b#ffb3b3';
+    skinCode.value = skinScheme.active ? `coco#${skinScheme.fur.replace('#', '')}` : 'coco#f6a64b';
   }
   function parseSkinCode(t) {
-    const m = /^coco#([0-9a-fA-F]{6})#([0-9a-fA-F]{6})$/.exec((t || '').trim());
+    // 兼容新格式 coco#<fur> 与旧格式 coco#<fur>#<cheek>（取第一个色值）
+    const m = /^coco#([0-9a-fA-F]{6})(?:#[0-9a-fA-F]{6})?$/.exec((t || '').trim());
     if (!m) return null;
-    return { active: true, fur: '#' + m[1].toLowerCase(), cheek: '#' + m[2].toLowerCase() };
+    return { active: true, fur: '#' + m[1].toLowerCase() };
   }
   function randomHex() {
     return hslToHex(Math.floor(Math.random() * 360), 0.5 + Math.random() * 0.35, 0.45 + Math.random() * 0.35);
@@ -391,9 +386,9 @@
     skinPanel.hidden = true;
     api.panelResize(false);
   }
-  function applyCustom(fur, cheek) {
-    lastCustom = { fur, cheek };
-    applySkin({ active: true, fur, cheek });
+  function applyCustom(fur) {
+    lastCustom = { fur };
+    applySkin({ active: true, fur });
     updateSkinCode();
     persistSkin();
   }
@@ -402,20 +397,19 @@
   document.querySelectorAll('.skin-presets button').forEach((btn) => {
     btn.addEventListener('click', () => {
       const key = btn.dataset.skin;
-      if (key === 'mine') { if (lastCustom) applyCustom(lastCustom.fur, lastCustom.cheek); else showBubble('还没有自定义配色，先调一下试试~', 3000); }
+      if (key === 'mine') { if (lastCustom) applyCustom(lastCustom.fur); else showBubble('还没有自定义配色，先调一下试试~', 3000); }
       else if (key === 'orange') { applySkin({ active: false }); }
-      else { const p = PRESETS[key]; if (p) applyCustom(p.fur, p.cheek); }
+      else { const p = PRESETS[key]; if (p) applyCustom(p.fur); }
       syncSkinInputs(); updateSkinCode();
     });
   });
-  skinFur.addEventListener('input', () => applyCustom(skinFur.value, skinCheek.value));
-  skinCheek.addEventListener('input', () => applyCustom(skinFur.value, skinCheek.value));
-  document.getElementById('skinRandom').addEventListener('click', () => { applyCustom(randomHex(), randomHex()); syncSkinInputs(); updateSkinCode(); });
+  skinFur.addEventListener('input', () => applyCustom(skinFur.value));
+  document.getElementById('skinRandom').addEventListener('click', () => { applyCustom(randomHex()); syncSkinInputs(); updateSkinCode(); });
   document.getElementById('skinDefault').addEventListener('click', () => { applySkin({ active: false }); syncSkinInputs(); updateSkinCode(); });
   document.getElementById('skinExport').addEventListener('click', () => { api.clipboardWrite(skinCode.value); showBubble('配色码已复制，发给朋友吧~ 🎨', 3000); });
   document.getElementById('skinImport').addEventListener('click', () => {
     const s = parseSkinCode(api.clipboardRead());
-    if (s) { applyCustom(s.fur, s.cheek); syncSkinInputs(); updateSkinCode(); showBubble('已应用朋友的同款配色~ 🎨', 3000); }
+    if (s) { applyCustom(s.fur); syncSkinInputs(); updateSkinCode(); showBubble('已应用朋友的同款配色~ 🎨', 3000); }
     else showBubble('剪贴板里没有有效的配色码哦', 3000);
   });
   document.getElementById('skinClose').addEventListener('click', closeSkinPanel);
