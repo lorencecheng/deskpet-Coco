@@ -162,6 +162,20 @@
       hints: ['好无聊呀~ 陪我玩嘛~', '一个人待着好没劲，来逗逗我~', '我超想追着你的光标跑！'] }
   };
   let needs = { hunger: 100, clean: 100, energy: 100, mood: 100 };
+  // 单机养成：把四维状态存到本地，重启后继续（长时间不理就会掉）
+  function saveNeeds() {
+    try { localStorage.setItem('coco.needs', JSON.stringify(needs)); } catch {}
+  }
+  function loadNeeds() {
+    try {
+      const n = JSON.parse(localStorage.getItem('coco.needs'));
+      if (n && typeof n === 'object') {
+        for (const k of Object.keys(NEED_DEFS)) {
+          if (Number.isFinite(n[k])) needs[k] = Math.max(0, Math.min(100, n[k]));
+        }
+      }
+    } catch {}
+  }
   const lastHintAt = { hunger: 0, clean: 0, energy: 0, mood: 0 };
   let bubbleTimer = null;
 
@@ -178,15 +192,15 @@
   // 并保留原像素的明暗关系（阴影/条纹自然迁移到新毛色），道具色（碗/面条/杯）与
   // 黑色轮廓完全不动，保证像素锐利、四肢正确。
   const PRESETS = {
-    orange: { fur: '#f6a64b' },
-    black:  { fur: '#3a3741' },
-    white:  { fur: '#f6f0e2' },
-    cream:  { fur: '#f4d9a8' },
-    gray:   { fur: '#9698a0' },
-    brown:  { fur: '#a47046' },
-    calico: { fur: '#dd8c52' }
+    orange: { fur: '#f6a64b', name: '橘猫' },
+    black:  { fur: '#3a3741', name: '黑猫' },
+    white:  { fur: '#f6f0e2', name: '白猫' },
+    cream:  { fur: '#f4d9a8', name: '奶油' },
+    gray:   { fur: '#9698a0', name: '灰猫' },
+    brown:  { fur: '#a47046', name: '狸花' },
+    calico: { fur: '#dd8c52', name: '三花' }
   };
-  let skinScheme = { active: false, fur: PRESETS.orange.fur };
+  let skinScheme = { active: false, fur: PRESETS.orange.fur, name: PRESETS.orange.name };
   let lastCustom = null;
   let recolorCache = {};
   let recolorPending = {};
@@ -332,7 +346,7 @@
     } catch {}
     try {
       const c = JSON.parse(localStorage.getItem('coco.skin.custom'));
-      if (c && typeof c === 'object' && c.fur) lastCustom = { fur: c.fur };
+      if (c && typeof c === 'object' && c.fur) lastCustom = { fur: c.fur, name: c.name || '自定义' };
     } catch {}
   }
 
@@ -340,6 +354,7 @@
     skinScheme.active = !!(scheme && scheme.active !== false);
     if (skinScheme.active) {
       skinScheme.fur = scheme.fur || PRESETS.orange.fur;
+      skinScheme.name = scheme.name || skinScheme.name || '自定义';
     }
     recolorCache = {};
     persistSkin();
@@ -363,16 +378,32 @@
     skinFur.value = skinScheme.active ? skinScheme.fur : PRESETS.orange.fur;
   }
   function updateSkinCode() {
-    skinCode.value = skinScheme.active ? `coco#${skinScheme.fur.replace('#', '')}` : 'coco#f6a64b';
+    const fur = (skinScheme.active ? skinScheme.fur : PRESETS.orange.fur).replace('#', '');
+    const nm = skinScheme.active ? (skinScheme.name || '自定义') : PRESETS.orange.name;
+    skinCode.value = `coco:${nm}#${fur}`;
   }
   function parseSkinCode(t) {
-    // 兼容新格式 coco#<fur> 与旧格式 coco#<fur>#<cheek>（取第一个色值）
-    const m = /^coco#([0-9a-fA-F]{6})(?:#[0-9a-fA-F]{6})?$/.exec((t || '').trim());
+    // 新格式 coco:名字#hex；兼容旧格式 coco#hex / coco#hex#cheek
+    let m = /^coco:([^#]+)#([0-9a-fA-F]{6})$/.exec((t || '').trim());
+    if (m) return { active: true, fur: '#' + m[2].toLowerCase(), name: m[1] };
+    m = /^coco#([0-9a-fA-F]{6})(?:#[0-9a-fA-F]{6})?$/.exec((t || '').trim());
     if (!m) return null;
     return { active: true, fur: '#' + m[1].toLowerCase() };
   }
-  function randomHex() {
-    return hslToHex(Math.floor(Math.random() * 360), 0.5 + Math.random() * 0.35, 0.45 + Math.random() * 0.35);
+  // 随机配色只从「现实存在的猫色」中取样，避免出现蓝/绿等不自然颜色
+  function randomRealFur() {
+    const bands = [
+      { h: [26, 42], s: [0.5, 0.68], l: [0.5, 0.66] },   // 橘/虎斑
+      { h: [15, 32], s: [0.3, 0.5], l: [0.3, 0.46] },    // 狸花棕
+      { h: [40, 50], s: [0.28, 0.45], l: [0.72, 0.86] }, // 奶油/杏
+      { h: [0, 360], s: [0.02, 0.12], l: [0.35, 0.72] }, // 灰/蓝灰(中性)
+      { h: [0, 360], s: [0.0, 0.15], l: [0.12, 0.22] }   // 近黑
+    ];
+    const b = bands[Math.floor(Math.random() * bands.length)];
+    const h = b.h[0] + Math.random() * (b.h[1] - b.h[0]);
+    const s = b.s[0] + Math.random() * (b.s[1] - b.s[0]);
+    const l = b.l[0] + Math.random() * (b.l[1] - b.l[0]);
+    return hslToHex(h, s, l);
   }
 
   function openSkinPanel() {
@@ -386,9 +417,10 @@
     skinPanel.hidden = true;
     api.panelResize(false);
   }
-  function applyCustom(fur) {
-    lastCustom = { fur };
-    applySkin({ active: true, fur });
+  function applyCustom(fur, name) {
+    lastCustom = { fur, name: name || '自定义' };
+    skinScheme.name = lastCustom.name;
+    applySkin({ active: true, fur, name: skinScheme.name });
     updateSkinCode();
     persistSkin();
   }
@@ -397,19 +429,19 @@
   document.querySelectorAll('.skin-presets button').forEach((btn) => {
     btn.addEventListener('click', () => {
       const key = btn.dataset.skin;
-      if (key === 'mine') { if (lastCustom) applyCustom(lastCustom.fur); else showBubble('还没有自定义配色，先调一下试试~', 3000); }
-      else if (key === 'orange') { applySkin({ active: false }); }
-      else { const p = PRESETS[key]; if (p) applyCustom(p.fur); }
+      if (key === 'mine') { if (lastCustom) applyCustom(lastCustom.fur, lastCustom.name); else showBubble('还没有自定义配色，先调一下试试~', 3000); }
+      else if (key === 'orange') { applySkin({ active: false, name: PRESETS.orange.name }); }
+      else { const p = PRESETS[key]; if (p) applyCustom(p.fur, p.name); }
       syncSkinInputs(); updateSkinCode();
     });
   });
   skinFur.addEventListener('input', () => applyCustom(skinFur.value));
-  document.getElementById('skinRandom').addEventListener('click', () => { applyCustom(randomHex()); syncSkinInputs(); updateSkinCode(); });
-  document.getElementById('skinDefault').addEventListener('click', () => { applySkin({ active: false }); syncSkinInputs(); updateSkinCode(); });
+  document.getElementById('skinRandom').addEventListener('click', () => { applyCustom(randomRealFur(), '随机'); syncSkinInputs(); updateSkinCode(); });
+  document.getElementById('skinDefault').addEventListener('click', () => { applySkin({ active: false, name: PRESETS.orange.name }); syncSkinInputs(); updateSkinCode(); });
   document.getElementById('skinExport').addEventListener('click', () => { api.clipboardWrite(skinCode.value); showBubble('配色码已复制，发给朋友吧~ 🎨', 3000); });
   document.getElementById('skinImport').addEventListener('click', () => {
     const s = parseSkinCode(api.clipboardRead());
-    if (s) { applyCustom(s.fur); syncSkinInputs(); updateSkinCode(); showBubble('已应用朋友的同款配色~ 🎨', 3000); }
+    if (s) { applyCustom(s.fur, s.name); syncSkinInputs(); updateSkinCode(); showBubble('已应用朋友的同款配色~ 🎨', 3000); }
     else showBubble('剪贴板里没有有效的配色码哦', 3000);
   });
   document.getElementById('skinClose').addEventListener('click', closeSkinPanel);
@@ -471,6 +503,7 @@
     if (reacts) showBubble(reacts[Math.floor(Math.random() * reacts.length)], 4200);
     updateIndicator();
     updatePanel();
+    saveNeeds();
   }
 
   /** 需求随时间变化（每 20 秒一跳） */
@@ -498,6 +531,7 @@
     }
     updateIndicator();
     updatePanel();
+    saveNeeds();
     setTimeout(tickNeeds, 20000);
   }
 
@@ -518,6 +552,7 @@
     if (name === 'status') { showStatus(); return; }
     if (name === 'quit') { api.quit(); return; }
     if (name === 'skin') { openSkinPanel(); return; }
+    if (name === 'weather') { showBubble('喵？让我看看今天的天气~ ☁️', 2000); api.checkWeather(); return; }
     // walk 由主进程驱动；这里只切换走路动画，避免与主进程双向触发形成循环
     if (name === 'walk') { setState('walk'); return; }
     if (!STATES[name]) return;
@@ -579,6 +614,25 @@
     setState('happy');
   }
 
+  // 悬停：偶尔歪头看光标（节流，避免一直打扰）
+  let lastHoverAt = 0;
+  petImg.addEventListener('pointerenter', () => {
+    const now = Date.now();
+    if (now - lastHoverAt > 8000 && currentState === 'idle') {
+      lastHoverAt = now;
+      setState('lookaround');
+      setTimeout(() => { if (currentState === 'lookaround') setState('idle'); }, 2200);
+      showBubble('喵？你一直在看我吗~ 😺', 3000);
+    }
+  });
+  // 双击：高兴地蹦一下
+  petImg.addEventListener('dblclick', () => {
+    if (currentState === 'sleep') setState('idle');
+    petImg.classList.add('pet-jump');
+    setTimeout(() => petImg.classList.remove('pet-jump'), 620);
+    showBubble('嘿嘿，跳一下！✨', 2200);
+  });
+
   // ---- 右键动作菜单 ----
   function toggleMenu() {
     menu.hidden = !menu.hidden;
@@ -614,6 +668,7 @@
   });
 
   // ---- 小助理：把文件拖到猫身上 → 猫"吃掉"并送入回收站 ----
+  let lastEatAt = 0; // 吃撑冷却
   window.addEventListener('dragover', (e) => e.preventDefault());
   window.addEventListener('drop', (e) => {
     e.preventDefault();
@@ -625,14 +680,27 @@
       if (p) paths.push(p);
     }
     if (paths.length === 0) return;
+    const now = Date.now();
+    if (now - lastEatAt < 4000) { setState('happy'); showBubble('等一下啦，我吃撑了，歇会儿~ 🥺', 2600); setTimeout(() => { if (currentState === 'happy') setState('idle'); }, 1200); return; }
+    lastEatAt = now;
+    const many = paths.length > 1;
     setState('feed'); // 先做出"大口吃"的动画
-    showBubble(`啊呜~ 有 ${paths.length} 个文件！看我吃掉它~ 😋`, 2600);
+    showBubble(many ? `哇，${paths.length} 个！看我大口吃掉~ 😋` : '啊呜~ 看我吃掉你~ 😋', 2600);
     api.eatFile(paths);
   });
-  // 吃文件结果：已送回收站 / 有没能吃掉的
+  // 吃文件结果：已送回收站 / 有没能吃掉的 / 有危险文件被拒绝
   api.onEatResult((r) => {
+    if (r && r.refused && r.refused.length) {
+      // 危险文件：拒绝吃，提示用系统删除
+      showBubble('这个不能吃，会肚子疼！程序/系统文件请自己删除哦 🛡️', 5200);
+      setState('happy');
+      setTimeout(() => { if (currentState === 'happy') setState('idle'); }, 1800);
+    }
     if (r && r.trash && r.trash.length) {
-      showBubble(`已把 ${r.trash.length} 个文件送到回收站啦~ 🗑️`, 5200);
+      needs.hunger = Math.min(100, needs.hunger + (r.trash.length > 1 ? 40 : 25));
+      needs.mood = Math.min(100, needs.mood + 6);
+      updateIndicator(); updatePanel(); saveNeeds();
+      showBubble(`已把 ${r.trash.length} 个文件送进回收站啦，有点饱了~ 🗑️😋`, 5200);
       setState('happy');
       setTimeout(() => { if (currentState === 'happy') setState('idle'); }, 1800);
     } else if (r && r.skipped && r.skipped.length) {
@@ -647,6 +715,7 @@
   setState('idle');
   scheduleIdleLoop();
   checkLongIdle();
+  loadNeeds(); // 恢复上次的四维状态（饱食/清洁/精力/心情）
   tickNeeds();
   restoreSkin(); // 恢复上次保存的皮肤配色
   if (skinScheme.active) applySkin(skinScheme);

@@ -53,9 +53,9 @@ Coco has **four needs** that change over time, and it actively tells you when so
 
 Coco is a small helper that lives on your desktop:
 
-- **🗑️ Eat a file** — drag any file/folder onto Coco and it chows down and **moves it to the Recycle Bin** (recoverable). Perfect for a little tidy-up. Right-click a stray file and drag it to the cat.
-- **🧍 Sedentary reminder** — when you've been continuously working (no keyboard/mouse idle for a while) past a threshold (default 60 min), Coco stretches and pops a bubble: *"been working ~60 min, stand up and drink some water~"*. Toggle in the tray menu.
-- **🌦 Weather alert** — Coco locates your approximate region by IP and checks the next 6 hours of forecast (Open-Meteo, no API key). If severe weather is coming (thunderstorm, heavy rain, heavy snow, freezing rain, dense fog) or extreme heat/cold, it warns you. Toggle in the tray menu.
+- **🗑️ Eat a file** — drag any file/folder onto Coco and it chows down and **moves it to the Recycle Bin** (recoverable). A few thoughtful details: executable/system files (`.exe/.lnk/.bat/.cmd/.sys/.msi`, or anything under `Program Files` / `Windows`) are **refused** (so it doesn't break its tummy and you don't lose critical files); feeding too fast triggers an **"I'm full" cooldown** — give it a moment.
+- **🧍 Sedentary reminder** — when you've been continuously working (no keyboard/mouse idle for a while) past a threshold, Coco stretches and pops a bubble to get you moving. Default 60 min; switch 30 / 60 / 90 min in the tray menu under **"久坐提醒间隔"**. Messages rotate so it never gets repetitive.
+- **🌦 Weather alert** — Coco locates your approximate region by IP and checks the next 6 hours of forecast (Open-Meteo, no API key). Severe weather (thunderstorm, heavy rain, snow, freezing rain, fog) or extreme heat/cold triggers a graded warning; right-click → "**查看天气**" to check the current weather anytime.
 
 Reminder toggles live in the system-tray menu under **"🤖 小助理提醒"**.
 
@@ -70,10 +70,14 @@ npm start       # launch the desktop pet
 
 | Action | Effect |
 |---|---|
+| Hover the pet | Coco occasionally tilts its head at you (throttled, non-intrusive) |
 | Click the pet | Coco waves "hi" |
+| Double-click the pet | Coco does a happy little jump |
 | Drag the pet | Pick it up and drop it anywhere (it bounces on landing) |
-| Right-click the pet | Interaction menu (Roam / Feed / Bath / Fish / Scratch / Sleep / Exit…) |
+| Right-click the pet | Interaction menu (Roam / Feed / Bath / Fish / Scratch / Check weather / Sleep / Exit…) |
 | Tray icon | Lives in the system tray; right-click for Roam, all interactions, or Exit |
+
+> 💾 **Local care system** — Coco's four needs (**satiety / cleanliness / energy / mood**) are saved locally: feeding it noodles/files fills it up, bathing cleans it, playing yarn/chase makes it happy but tired; ignoring it for too long slowly drains the bars and it asks you to play. It persists across restarts — like a little buddy that needs your care.
 
 ## 🗜️ Package a Windows build
 
@@ -116,11 +120,11 @@ assets/sprites/
 Open the palette panel via **🎨 Skin Workshop** in the right-click menu. Restyling only changes the cat's **fur** color — the pixel art, limbs, the pink blush/heart, and any props in its paws (bowl, noodles, coffee mug) are all preserved. Presets are all real, existing cat coat colors (no unrealistic blue/green cats).
 
 - **Presets**: 🟠 Orange · ⚫ Black · ⚪ White · 🟡 Cream · 🐭 Gray · 🟤 Tabby-brown · 🧡 Calico
-- **Custom palette**: drag the "Fur" and "Blush" color pickers for live preview
-- **🎲 Random**: one-click random fur colors, fun to play with
+- **Custom palette**: drag the "Fur" color picker for live preview
+- **🎲 Random**: one-click random **real-world cat colors** (orange / tabby / cream / tabby-brown / gray / near-black) — never those unnatural blue or green cats
 - **❤️ My palette**: save and instantly switch back to your latest custom scheme
 - **↩ Reset to orange**: back to the classic orange cat anytime
-- **Color-code sharing**: copy the code (e.g. `coco#f6a64b`) from the panel; a friend pastes it in their own Coco to get the identical cat. Perfect for sharing on social feeds — let's pass the cat around!
+- **Color-code sharing**: copy the code (e.g. `coco:Orange#f6a64b`, with the color name for clarity) from the panel; a friend pastes it in their own Coco to get the identical cat. Perfect for sharing on social feeds — let's pass the cat around!
 
 > The scheme is saved locally (`localStorage`) and persists across restarts.
 

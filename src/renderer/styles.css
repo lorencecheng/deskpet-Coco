@@ -52,6 +52,14 @@ body {
 .pet-walk { animation: stroll 0.55s ease-in-out infinite; }
 .pet-facing-left { --facing: -1; }
 
+/* 双击：高兴地蹦一下 */
+@keyframes cocoJump {
+  0%, 100% { transform: scaleX(var(--facing, 1)) translateY(0); }
+  40% { transform: scaleX(var(--facing, 1)) translateY(-16px) scale(1.06); }
+  70% { transform: scaleX(var(--facing, 1)) translateY(0) scale(0.98); }
+}
+.pet-jump { animation: cocoJump 0.6s ease; }
+
 /* 呼吸：睡觉时缓慢起伏 */
 @keyframes breathe {
   0%, 100% { transform: scale(1); }

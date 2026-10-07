@@ -66,5 +66,7 @@ contextBridge.exposeInMainWorld('coco', {
   /** 打开/关闭皮肤工坊面板时临时调整窗口高度 */
   panelResize(open) { ipcRenderer.send('pet:panel-resize', open); },
   /** 读取精灵图片为 dataURL（调色用），relPath 形如 "idle/frame-1.png" */
-  readSprite(relPath) { return ipcRenderer.invoke('read-sprite', relPath); }
+  readSprite(relPath) { return ipcRenderer.invoke('read-sprite', relPath); },
+  /** 手动查询当前天气（主进程立即返回天气概况） */
+  checkWeather() { ipcRenderer.send('pet:weather-check'); }
 });
