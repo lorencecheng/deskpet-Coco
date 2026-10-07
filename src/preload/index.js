@@ -34,5 +34,7 @@ contextBridge.exposeInMainWorld('coco', {
     return () => ipcRenderer.removeListener('pet:walk-dir', listener);
   },
   /** 退出应用 */
-  quit() { ipcRenderer.send('pet:quit'); }
+  quit() { ipcRenderer.send('pet:quit'); },
+  /** 右键菜单开/关时让主进程临时拉高窗口，保证全部选项可见 */
+  menuResize(open) { ipcRenderer.send('pet:menu-resize', open); }
 });

@@ -19,6 +19,17 @@ let wandering = false;
 let wanderTimer = null;
 let wanderLegs = 0;
 
+// 追光标（持续追踪）状态
+let chasing = false;
+let chaseTimer = null;
+let chaseSettle = 0;        // 猫已在光标附近"待命"的累计毫秒
+let chaseLastCursor = null; // 上一次采样到的光标位置（用于判断光标是否在动）
+
+// 边缘藏猫状态：拖到左/右边缘时收进屏幕外，偶尔探头/尾巴
+let hiddenMode = null;      // null | 'left' | 'right'
+let peekTimer = null;
+let peekAnim = null;
+
 /** 窗口创建后始终保持在工作区内，防止拖到屏幕外 */
 function keepInBounds() {
   if (!win || win.isDestroyed()) return;
@@ -76,7 +87,58 @@ function stopWandering() {
   if (wanderTimer) { clearInterval(wanderTimer); wanderTimer = null; }
 }
 
-/** 把窗口平滑移动到 (tx, ty)，到位后回调 */
+/** 停止追光标 */
+function stopChase() {
+  chasing = false;
+  if (chaseTimer) { clearInterval(chaseTimer); chaseTimer = null; }
+}
+
+/** 退出边缘藏猫 */
+function exitEdgeHide() {
+  hiddenMode = null;
+  if (peekTimer) { clearTimeout(peekTimer); peekTimer = null; }
+  if (peekAnim) { clearInterval(peekAnim); peekAnim = null; }
+}
+
+/** 进入边缘藏猫：把窗口收进屏幕边缘外，偶尔探头瞄一下 */
+function enterEdgeHide(edge) {
+  if (!win || win.isDestroyed()) return;
+  stopWandering();
+  stopChase();
+  exitEdgeHide();
+  hiddenMode = edge;
+  const wa = screen.getPrimaryDisplay().workArea;
+  const HIDE_PX = 28; // 藏起来后屏幕边露出的宽度
+  let hx;
+  if (edge === 'right') hx = wa.x + wa.width - HIDE_PX;
+  else hx = wa.x + HIDE_PX - PET_W;
+  const [, y] = win.getPosition();
+  win.setPosition(Math.round(hx), y);
+  // 周期性探头：滑出 ~1.4s 再滑回去
+  const doPeek = () => {
+    if (!hiddenMode || !win || win.isDestroyed()) return;
+    const out = edge === 'right' ? hx - 170 : hx + 170; // 探出头的位置
+    sendAction('lookaround'); // 探头时东张西望，像在偷看主人
+    const steps = 10;
+    let i = 0;
+    peekAnim = setInterval(() => {
+      i += 1;
+      const t = i / steps;
+      const cx = Math.round(hx + (out - hx) * Math.sin(t * Math.PI)); // 平滑进出
+      win.setPosition(cx, y);
+      if (i >= steps) {
+        clearInterval(peekAnim); peekAnim = null;
+        peekTimer = setTimeout(() => { win && !win.isDestroyed() && sendAction('idle'); doPeek2(); }, 1600);
+      }
+    }, 30);
+  };
+  const doPeek2 = () => {
+    peekTimer = setTimeout(() => { if (hiddenMode) doPeek(); }, 3500 + Math.random() * 3000);
+  };
+  peekTimer = setTimeout(doPeek, 1500);
+}
+
+/** 把窗口平滑移动到 (tx, ty)，到位后回调（慢速、自然，配合走路动画） */
 function moveWindowTo(tx, ty, onDone) {
   const wa = screen.getPrimaryDisplay().workArea;
   tx = Math.max(wa.x, Math.min(wa.x + wa.width - PET_W, tx));
@@ -86,7 +148,7 @@ function moveWindowTo(tx, ty, onDone) {
   const dy = ty - sy0;
   const dist = Math.hypot(dx, dy);
   if (dist < 4) { if (onDone) onDone(); return; }
-  const steps = Math.max(8, Math.min(50, Math.ceil(dist / 14)));
+  const steps = Math.max(8, Math.min(120, Math.ceil(dist / 8))); // 每步约 8px，更慢更自然
   let i = 0;
   wanderTimer = setInterval(() => {
     i += 1;
@@ -102,7 +164,7 @@ function moveWindowTo(tx, ty, onDone) {
       wanderTimer = null;
       if (onDone) onDone();
     }
-  }, 45);
+  }, 100);
 }
 
 /** 巡游：随机挑一条边（含角落），走一段、停一会、再来 */
@@ -127,18 +189,19 @@ function runWanderLeg() {
     tx = wa.x + wa.width - PET_W - m;
     ty = wa.y + m + Math.random() * (wa.height - PET_H - 2 * m);
   }
-  // 播放走路动画，并告知朝左/朝右（供渲染进程水平镜像）
+  // 先切走路动画，再告知朝左/朝右（顺序重要：否则渲染端 setState 会清掉镜像类）
+  sendAction('walk');
   const [curX] = win.getPosition();
   win.webContents.send('pet:walk-dir', tx < curX ? 'left' : 'right');
-  sendAction('walk');
   moveWindowTo(tx, ty, () => {
     if (!wandering) return;
     // 到点随机停一下：偶尔伸个懒腰或东张西望，再继续走（更自然）
     const rest = ['idle', 'idle', 'idle', 'stretch', 'lookaround'][Math.floor(Math.random() * 5)];
     sendAction(rest);
     wanderLegs += 1;
-    if (wanderLegs >= 5 + Math.floor(Math.random() * 4)) {
-      wandering = false; // 巡游结束，安静待一会儿
+    // 走 2~4 段后自动停下、安静待一会
+    if (wanderLegs >= 2 + Math.floor(Math.random() * 3)) {
+      wandering = false;
       return;
     }
     // 伸懒腰 / 张望这类小动作多停一会儿
@@ -149,6 +212,7 @@ function runWanderLeg() {
 
 function startWandering() {
   if (!win || win.isDestroyed()) return;
+  stopChase();
   stopWandering();
   wandering = true;
   wanderLegs = 0;
@@ -193,9 +257,27 @@ function registerIpc() {
   // 渲染进程直接退出
   ipcMain.on('pet:quit', () => { quitting = true; app.quit(); });
 
+  // 右键菜单开/关：临时拉高窗口以容纳全部选项，宠物居中位置不变
+  let menuExpanded = false;
+  const MENU_OPEN_H = 320; // 菜单展开时窗口高度
+  ipcMain.on('pet:menu-resize', (_e, open) => {
+    if (!win || win.isDestroyed()) return;
+    if (!!open === menuExpanded) return;
+    const [x, y, w, h] = [win.getBounds().x, win.getBounds().y, win.getBounds().width, win.getBounds().height];
+    if (open) {
+      const delta = MENU_OPEN_H - h;
+      win.setBounds({ x, y: Math.round(y - delta / 2), width: w, height: MENU_OPEN_H });
+    } else {
+      const delta = h - PET_H;
+      win.setBounds({ x, y: Math.round(y + delta / 2), width: w, height: PET_H });
+    }
+    menuExpanded = !!open;
+  });
+
   // 拖动宠物：用光标位置增量移动窗口
   ipcMain.on('pet:drag-start', () => {
     stopWandering();
+    exitEdgeHide(); // 重新拖拽就从藏身处出来
     const p = screen.getCursorScreenPoint();
     dragRef = { lastX: p.x, lastY: p.y };
   });
@@ -211,41 +293,64 @@ function registerIpc() {
   });
   ipcMain.on('pet:drag-end', () => {
     dragRef = null;
+    if (!win || win.isDestroyed()) return;
+    // 拖到左/右屏幕边缘附近 → 猫藏起来，偶尔探头偷看
+    const wa = screen.getPrimaryDisplay().workArea;
+    const [x] = win.getPosition();
+    if (x + PET_W > wa.x + wa.width - 70) enterEdgeHide('right');
+    else if (x < wa.x + 70) enterEdgeHide('left');
   });
 
-  // 追光标：把窗口朝光标位置分步扑跳（取整 + 有限数校验，避免 NaN/小数触发崩溃）
+  // 追光标：进入持续追踪模式——猫每帧读取光标位置，朝它跑过去；
+  // 鼠标移到哪猫就追到哪；鼠标停下后猫追到光标附近即开心收尾并退出。
   ipcMain.on('pet:chase', () => {
     if (!win || win.isDestroyed()) return;
     stopWandering();
+    if (chasing) return; // 已在追踪中
+    chasing = true;
+    chaseSettle = 0;
+    chaseLastCursor = screen.getCursorScreenPoint();
+    chaseTick();
+    chaseTimer = setInterval(chaseTick, 33);
+  });
+
+  function chaseTick() {
+    if (!chasing || !win || win.isDestroyed()) { stopChase(); return; }
+    const p = screen.getCursorScreenPoint();
     const b = win.getBounds();
     const cx = b.x + b.width / 2;
     const cy = b.y + b.height / 2;
-    const p = screen.getCursorScreenPoint();
     const dx = p.x - cx;
     const dy = p.y - cy;
     const dist = Math.hypot(dx, dy);
-    if (!Number.isFinite(dist) || dist < 10) {
-      if (win && !win.isDestroyed()) win.webContents.send('pet:chase-done');
-      return;
-    }
-    const steps = Math.max(4, Math.min(12, Math.ceil(dist / 26)));
-    const sx = dx / dist;
-    const sy = dy / dist;
-    let i = 0;
-    const timer = setInterval(() => {
-      if (!win || win.isDestroyed()) { clearInterval(timer); return; }
-      const [x, y] = win.getPosition();
-      const nx = Math.round(x + sx * 26);
-      const ny = Math.round(y + sy * 26);
-      if (!Number.isFinite(nx) || !Number.isFinite(ny)) { clearInterval(timer); return; }
-      win.setPosition(nx, ny);
-      i += 1;
-      if (i >= steps) {
-        clearInterval(timer);
+    if (!Number.isFinite(dist)) { stopChase(); return; }
+
+    // 朝左/朝右转身（供渲染进程水平镜像）
+    win.webContents.send('pet:walk-dir', dx < 0 ? 'left' : 'right');
+
+    const CATCH = 22; // 追到判定距离
+    if (dist < CATCH) {
+      // 已在光标附近：若光标仍静止就待命计时，超时开心收尾；光标一动就继续追
+      if (!chaseLastCursor) chaseLastCursor = p;
+      const moved = Math.hypot(p.x - chaseLastCursor.x, p.y - chaseLastCursor.y);
+      chaseLastCursor = p;
+      chaseSettle = moved < 4 ? chaseSettle + 33 : 0;
+      if (chaseSettle >= 900) {
+        stopChase();
         if (win && !win.isDestroyed()) win.webContents.send('pet:chase-done');
       }
-    }, 70);
-  });
+      return;
+    }
+
+    // 光标在移动：重置待命计时，平滑追赶（远快近缓，避免过快突兀）
+    chaseSettle = 0;
+    chaseLastCursor = p;
+    const step = Math.max(2.5, Math.min(16, dist * 0.30));
+    const nx = Math.round(b.x + (dx / dist) * step);
+    const ny = Math.round(b.y + (dy / dist) * step);
+    if (!Number.isFinite(nx) || !Number.isFinite(ny)) { stopChase(); return; }
+    win.setPosition(nx, ny);
+  }
 
   // 桌面巡游
   ipcMain.on('pet:walk', () => startWandering());
@@ -270,6 +375,14 @@ if (!gotLock) {
     createTray();
     // 调试/演示用：COC_AUTOWALK=1 时启动后自动开始桌面巡游
     if (process.env.COC_AUTOWALK === '1') setTimeout(startWandering, 1500);
+    // 调试/演示用：COC_AUTOCHASE=1 时启动后自动进入追光标模式（端到端：渲染端 startChase → 主进程持续追踪）
+    if (process.env.COC_AUTOCHASE === '1') {
+      win.webContents.once('did-finish-load', () => {
+        const trigger = () => { if (win && !win.isDestroyed()) win.webContents.send('pet:action', 'chase'); };
+        setTimeout(trigger, 1500);
+        setInterval(trigger, 1500); // 周期重触发，便于持续演示"鼠标移到哪猫追到哪"
+      });
+    }
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow();
     });

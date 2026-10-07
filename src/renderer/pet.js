@@ -18,12 +18,12 @@
   const STATES = {
     idle:        { duration: null, cls: 'pet-idle' },
     'idle-blink':{ duration: 280, cls: 'pet-idle' },
-    walk:        { duration: null, cls: 'pet-walk' },
+    walk:        { duration: null, cls: 'pet-walk', fps: 7 },
     stretch:     { duration: 2600, cls: 'pet-stretch' },
     lookaround:  { duration: 2200, cls: 'pet-lookaround' },
     drink:       { duration: 5200, cls: 'pet-drink' },
     yarn:        { duration: 4500, cls: 'pet-yarn' },
-    chase:       { duration: null, cls: 'pet-chase' },
+    chase:       { duration: null, cls: 'pet-chase', sprite: 'walk', fps: 12 },
     happy:       { duration: 2000, cls: 'pet-happy' },
     feed:        { duration: 4200, cls: 'pet-feed' },
     bath:        { duration: 5200, cls: 'pet-bath' },
@@ -46,7 +46,8 @@
     triggerAction() {},
     dragStart() {}, dragMove() {}, dragEnd() {},
     chase() {}, onChaseDone() { return () => {}; },
-    walk() {}, quit() {}, onWalkDir() { return () => {}; }
+    walk() {}, quit() {}, onWalkDir() { return () => {}; },
+    menuResize() {}
   };
 
   // ---- 精灵帧加载与缓存 ----
@@ -99,16 +100,20 @@
     const cfg = STATES[name];
     if (!cfg) return;
 
+    // 保留水平镜像类（pet-facing-left），避免换状态时被清掉导致朝左丢失
+    const facingLeft = petImg.classList.contains('pet-facing-left');
+
     currentState = name;
     petImg.className = '';
     void petImg.offsetWidth; // 强制重启 CSS 动画
+    if (facingLeft) petImg.classList.add('pet-facing-left');
     petImg.classList.add(cfg.cls || 'pet-idle');
 
     const sprite = cfg.sprite || name; // 某些状态复用其他精灵帧（walk 用 idle 帧 + 走路动画）
     probeFrames(sprite).then((frames) => {
       if (currentState !== name) return; // 状态已切换，丢弃过期帧
       if (frames.length > 1) {
-        startAnim(frames, ANIM_FPS);
+        startAnim(frames, cfg.fps || ANIM_FPS);
       } else {
         stopAnim();
         petImg.src = `${SPRITE_BASE}/${sprite}/frame-1.png`;
@@ -183,9 +188,13 @@
       fill.style.background = barColor(needs[k]);
     }
   }
-  function togglePanel() {
-    needsPanel.hidden = !needsPanel.hidden;
-    if (!needsPanel.hidden) updatePanel();
+  let panelTimer = null;
+  function showStatus() {
+    needsPanel.hidden = false;
+    updatePanel();
+    // 查看后 5 秒自动消失，无需再点一次
+    clearTimeout(panelTimer);
+    panelTimer = setTimeout(() => { needsPanel.hidden = true; }, 5000);
   }
 
   /** 互动对需求的影响 */
@@ -233,18 +242,20 @@
   }
 
   // ---- 动作入口（托盘菜单、右键菜单共用）----
+  let chaseActive = false;
   function startChase() {
     if (currentState === 'sleep') setState('idle');
     applyInteraction('chase');
-    setState('chase');
-    api.chase();
-    // 兜底：若主进程迟迟未回报扑跳完成，自动回到开心/待机
+    chaseActive = true;
+    setState('chase'); // 复用走路精灵 + 更快帧率 + 弹跳跑动感，去追光标
+    api.chase();       // 主进程开启持续追踪：鼠标移到哪，猫跑着追到哪
+    // 兜底：主进程迟迟未回报完成时（异常情况）回到待机
     clearTimeout(chaseTimeout);
-    chaseTimeout = setTimeout(() => { if (currentState === 'chase') setState('happy'); }, 3200);
+    chaseTimeout = setTimeout(() => { if (chaseActive) { chaseActive = false; setState('idle'); } }, 15000);
   }
 
   function runAction(name) {
-    if (name === 'status') { togglePanel(); return; }
+    if (name === 'status') { showStatus(); return; }
     if (name === 'quit') { api.quit(); return; }
     // walk 由主进程驱动；这里只切换走路动画，避免与主进程双向触发形成循环
     if (name === 'walk') { setState('walk'); return; }
@@ -311,8 +322,8 @@
   function toggleMenu() {
     menu.hidden = !menu.hidden;
   }
-  function showMenu() { menu.hidden = false; }
-  function hideMenu() { menu.hidden = true; }
+  function showMenu() { menu.hidden = false; api.menuResize(true); }
+  function hideMenu() { menu.hidden = true; api.menuResize(false); }
   document.addEventListener('click', (e) => {
     if (!menu.contains(e.target)) hideMenu();
   });
@@ -330,7 +341,8 @@
   // ---- 启动 ----
   api.onAction(runAction);
   api.onChaseDone(() => {
-    if (currentState === 'chase') {
+    if (chaseActive) {
+      chaseActive = false;
       setState('happy');
       setTimeout(() => { if (currentState === 'happy') setState('idle'); }, 1600);
     }
