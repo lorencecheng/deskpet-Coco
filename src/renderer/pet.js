@@ -18,7 +18,7 @@
   const STATES = {
     idle:        { duration: null, cls: 'pet-idle' },
     'idle-blink':{ duration: 280, cls: 'pet-idle' },
-    walk:        { duration: null, cls: 'pet-walk', sprite: 'idle' },
+    walk:        { duration: null, cls: 'pet-walk' },
     drink:       { duration: 5200, cls: 'pet-drink' },
     yarn:        { duration: 4500, cls: 'pet-yarn' },
     chase:       { duration: null, cls: 'pet-chase' },
@@ -44,7 +44,7 @@
     triggerAction() {},
     dragStart() {}, dragMove() {}, dragEnd() {},
     chase() {}, onChaseDone() { return () => {}; },
-    walk() {}, quit() {}
+    walk() {}, quit() {}, onWalkDir() { return () => {}; }
   };
 
   // ---- 精灵帧加载与缓存 ----
@@ -332,6 +332,10 @@
       setState('happy');
       setTimeout(() => { if (currentState === 'happy') setState('idle'); }, 1600);
     }
+  });
+  // 巡游方向：主进程告知朝左/朝右，做水平镜像
+  api.onWalkDir((dir) => {
+    petImg.classList.toggle('pet-facing-left', dir === 'left');
   });
   setState('idle');
   scheduleIdleLoop();

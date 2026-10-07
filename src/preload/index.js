@@ -27,6 +27,12 @@ contextBridge.exposeInMainWorld('coco', {
   },
   /** 桌面巡游：让主进程沿屏幕四边闲逛 */
   walk() { ipcRenderer.send('pet:walk'); },
+  /** 巡游方向回调：dir = 'left' | 'right' */
+  onWalkDir(callback) {
+    const listener = (_e, dir) => callback(dir);
+    ipcRenderer.on('pet:walk-dir', listener);
+    return () => ipcRenderer.removeListener('pet:walk-dir', listener);
+  },
   /** 退出应用 */
   quit() { ipcRenderer.send('pet:quit'); }
 });

@@ -127,7 +127,9 @@ function runWanderLeg() {
     tx = wa.x + wa.width - PET_W - m;
     ty = wa.y + m + Math.random() * (wa.height - PET_H - 2 * m);
   }
-  // 播放走路动画
+  // 播放走路动画，并告知朝左/朝右（供渲染进程水平镜像）
+  const [curX] = win.getPosition();
+  win.webContents.send('pet:walk-dir', tx < curX ? 'left' : 'right');
   sendAction('walk');
   moveWindowTo(tx, ty, () => {
     if (!wandering) return;

@@ -46,10 +46,11 @@ body {
 
 /* 巡游走路：轻快的小踏步（配合主进程窗口沿桌边移动） */
 @keyframes stroll {
-  0%, 100% { transform: translateY(0) rotate(-2deg); }
-  50% { transform: translateY(-5px) rotate(2deg); }
+  0%, 100% { transform: scaleX(var(--facing, 1)) translateY(0) rotate(-2deg); }
+  50% { transform: scaleX(var(--facing, 1)) translateY(-5px) rotate(2deg); }
 }
 .pet-walk { animation: stroll 0.55s ease-in-out infinite; }
+.pet-facing-left { --facing: -1; }
 
 /* 呼吸：睡觉时缓慢起伏 */
 @keyframes breathe {
