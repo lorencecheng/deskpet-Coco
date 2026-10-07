@@ -4,6 +4,7 @@
  */
 const { app, BrowserWindow, Tray, Menu, ipcMain, screen, nativeImage, shell, powerMonitor } = require('electron');
 const path = require('path');
+const fs = require('fs');
 
 // 窗口尺寸：一个容纳宠物的小方块（原 320 → 缩到 256，整体缩小 20%）
 const PET_W = 256;
@@ -273,6 +274,17 @@ function registerIpc() {
   // 渲染进程直接退出
   ipcMain.on('pet:quit', () => { quitting = true; app.quit(); });
 
+  // 读取精灵图为 dataURL（渲染端调色用；主进程读文件，规避 CSP 与 canvas 污染）
+  ipcMain.handle('read-sprite', (_e, relPath) => {
+    try {
+      const abs = path.join(__dirname, '..', '..', 'assets', 'sprites', relPath);
+      const buf = fs.readFileSync(abs);
+      const ext = path.extname(abs).toLowerCase();
+      const mime = ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : ext === '.gif' ? 'image/gif' : 'image/png';
+      return 'data:' + mime + ';base64,' + buf.toString('base64');
+    } catch { return null; }
+  });
+
   // 右键菜单开/关：临时拉高窗口以容纳全部选项，宠物居中位置不变
   let menuExpanded = false;
   const MENU_OPEN_H = 320; // 菜单展开时窗口高度
@@ -288,6 +300,19 @@ function registerIpc() {
       win.setBounds({ x, y: Math.round(y + delta / 2), width: w, height: PET_H });
     }
     menuExpanded = !!open;
+  });
+
+  // 皮肤工坊面板开/关：临时拉高窗口容纳面板，宠物居中位置不变
+  let panelExpanded = false;
+  const SKIN_PANEL_H = 360;
+  ipcMain.on('pet:panel-resize', (_e, open) => {
+    if (!win || win.isDestroyed()) return;
+    if (!!open === panelExpanded) return;
+    const b = win.getBounds();
+    const target = open ? SKIN_PANEL_H : PET_H;
+    const delta = target - b.height;
+    win.setBounds({ x: b.x, y: Math.round(b.y - delta / 2), width: b.width, height: target });
+    panelExpanded = !!open;
   });
 
   // ---- 小助理：吃文件（把拖到猫身上的文件送入回收站，可恢复） ----

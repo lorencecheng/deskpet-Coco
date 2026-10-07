@@ -2,7 +2,7 @@
  * DeskPet Coco — 预加载脚本
  * 通过 contextBridge 向渲染进程暴露最小化、安全的 IPC 接口。
  */
-const { contextBridge, ipcRenderer, webUtils } = require('electron');
+const { contextBridge, ipcRenderer, webUtils, clipboard } = require('electron');
 
 contextBridge.exposeInMainWorld('coco', {
   /** 订阅主进程（托盘菜单等）下发的动作 */
@@ -56,5 +56,15 @@ contextBridge.exposeInMainWorld('coco', {
     const listener = (_e, msg) => callback(msg);
     ipcRenderer.on('pet:remind', listener);
     return () => ipcRenderer.removeListener('pet:remind', listener);
-  }
+  },
+
+  // ---- 皮肤工坊 ----
+  /** 把配色码写入剪贴板 */
+  clipboardWrite(text) { try { clipboard.writeText(text); return true; } catch { return false; } },
+  /** 读取剪贴板文本 */
+  clipboardRead() { try { return clipboard.readText() || ''; } catch { return ''; } },
+  /** 打开/关闭皮肤工坊面板时临时调整窗口高度 */
+  panelResize(open) { ipcRenderer.send('pet:panel-resize', open); },
+  /** 读取精灵图片为 dataURL（调色用），relPath 形如 "idle/frame-1.png" */
+  readSprite(relPath) { return ipcRenderer.invoke('read-sprite', relPath); }
 });

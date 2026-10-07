@@ -162,6 +162,70 @@ body {
 }
 #menu button:hover { background: rgba(255, 170, 90, 0.35); }
 
+/* ===== 皮肤工坊面板 ===== */
+#skinPanel {
+  position: absolute;
+  left: 6px;
+  bottom: 6px;
+  z-index: 25;
+  width: 240px;
+  background: rgba(40, 30, 20, 0.95);
+  border: 1px solid rgba(255, 200, 150, 0.4);
+  border-radius: 12px;
+  padding: 10px;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.4);
+  color: #fff3e6;
+}
+#skinPanel[hidden] { display: none; }
+.skin-title { font-size: 14px; font-weight: 700; margin-bottom: 8px; }
+.skin-presets { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
+.skin-presets button {
+  border: 1px solid rgba(255, 200, 150, 0.4);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff3e6;
+  font-size: 12px;
+  border-radius: 6px;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+.skin-presets button:hover { background: rgba(255, 170, 90, 0.35); }
+.skin-row { display: flex; align-items: center; gap: 6px; margin: 6px 0; font-size: 12px; }
+.skin-row span { width: 40px; flex-shrink: 0; }
+.skin-row input[type='color'] {
+  width: 34px;
+  height: 26px;
+  border: 1px solid rgba(255, 200, 150, 0.4);
+  border-radius: 5px;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+}
+.skin-row input#skinCode { flex: 1; font-size: 11px; background: rgba(0,0,0,0.3); color: #fff3e6; border: 1px solid rgba(255,200,150,0.3); border-radius: 5px; padding: 3px 5px; }
+.skin-row button {
+  border: 1px solid rgba(255, 200, 150, 0.4);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff3e6;
+  font-size: 11px;
+  border-radius: 6px;
+  padding: 3px 7px;
+  cursor: pointer;
+}
+.skin-row button:hover { background: rgba(255, 170, 90, 0.35); }
+.skin-hint { font-size: 10px; color: #e8cfa8; margin: 6px 0; }
+#skinClose {
+  width: 100%;
+  border: none;
+  background: rgba(255, 170, 90, 0.5);
+  color: #3a2410;
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: 8px;
+  padding: 6px;
+  cursor: pointer;
+  margin-top: 2px;
+}
+#skinClose:hover { background: rgba(255, 170, 90, 0.75); }
+
 /* ===== 状态提示：对话气泡 / 头顶图标 / 状态面板 ===== */
 #bubble {
   position: absolute;

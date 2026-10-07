@@ -31,7 +31,31 @@
       <button data-action="fishing">🎣 钓鱼</button>
       <button data-action="scratch">🐾 抓痒</button>
       <button data-action="sleep">😴 睡觉</button>
+      <button data-action="skin">🎨 皮肤工坊</button>
       <button data-action="quit">🚪 退出</button>
+    </div>
+    <!-- 皮肤工坊面板（默认隐藏） -->
+    <div id="skinPanel" hidden>
+      <div class="skin-title">🎨 皮肤工坊</div>
+      <div class="skin-presets">
+        <button data-skin="orange">🟠 橘猫</button>
+        <button data-skin="black">⚫ 黑猫</button>
+        <button data-skin="white">⚪ 白猫</button>
+        <button data-skin="blue">🔵 蓝灰</button>
+        <button data-skin="cream">🟡 奶油</button>
+        <button data-skin="calico">🌸 三花</button>
+        <button data-skin="mine">❤️ 我的配色</button>
+      </div>
+      <div class="skin-row"><span>毛色</span><input type="color" id="skinFur" value="#f6a64b"></div>
+      <div class="skin-row"><span>腮红</span><input type="color" id="skinCheek" value="#ffb3b3"></div>
+      <div class="skin-row">
+        <button id="skinRandom">🎲 随机配色</button>
+        <button id="skinDefault">↩ 恢复橘猫</button>
+      </div>
+      <div class="skin-row"><span>配色码</span><input id="skinCode" readonly>
+        <button id="skinExport">复制</button><button id="skinImport">粘贴</button></div>
+      <div class="skin-hint">把配色码发给朋友，对方「粘贴」就能得到同款猫咪~</div>
+      <button id="skinClose">完成 ✔</button>
     </div>
   </div>
   <script src="pet.js"></script>
