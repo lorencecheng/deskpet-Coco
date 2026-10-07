@@ -1,17 +1,6 @@
-
-
-
-
-
-
-
-
-
-
+🐾 DeskPet
 
 An open-source desktop pet that lives on your computer screen.
-
-
 
 
 ## ✨ Features
