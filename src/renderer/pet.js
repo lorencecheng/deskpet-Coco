@@ -19,6 +19,8 @@
     idle:        { duration: null, cls: 'pet-idle' },
     'idle-blink':{ duration: 280, cls: 'pet-idle' },
     walk:        { duration: null, cls: 'pet-walk' },
+    stretch:     { duration: 2600, cls: 'pet-stretch' },
+    lookaround:  { duration: 2200, cls: 'pet-lookaround' },
     drink:       { duration: 5200, cls: 'pet-drink' },
     yarn:        { duration: 4500, cls: 'pet-yarn' },
     chase:       { duration: null, cls: 'pet-chase' },

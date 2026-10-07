@@ -133,14 +133,17 @@ function runWanderLeg() {
   sendAction('walk');
   moveWindowTo(tx, ty, () => {
     if (!wandering) return;
-    sendAction('idle'); // 到点先停一停
+    // 到点随机停一下：偶尔伸个懒腰或东张西望，再继续走（更自然）
+    const rest = ['idle', 'idle', 'idle', 'stretch', 'lookaround'][Math.floor(Math.random() * 5)];
+    sendAction(rest);
     wanderLegs += 1;
     if (wanderLegs >= 5 + Math.floor(Math.random() * 4)) {
       wandering = false; // 巡游结束，安静待一会儿
       return;
     }
-    // 停顿片刻再走下一段
-    wanderTimer = setTimeout(runWanderLeg, 900 + Math.random() * 2000);
+    // 伸懒腰 / 张望这类小动作多停一会儿
+    const pause = rest === 'idle' ? 900 + Math.random() * 1500 : 1600 + Math.random() * 1600;
+    wanderTimer = setTimeout(runWanderLeg, pause);
   });
 }
 
