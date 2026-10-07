@@ -1,0 +1,134 @@
+/* DeskPet Coco — 渲染进程样式 */
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: grab;
+  font-family: system-ui, "Microsoft YaHei", "PingFang SC", sans-serif;
+}
+
+body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#pet {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#petImg {
+  width: 82%;
+  height: 82%;
+  object-fit: contain;
+  pointer-events: auto;
+  image-rendering: auto;
+  -webkit-user-drag: none;
+}
+
+/* ===== 灵动动画（CSS 让单帧精灵也“活”起来）===== */
+/* 待机：轻柔上下浮动 */
+@keyframes bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+.pet-idle { animation: bob 2.6s ease-in-out infinite; }
+
+/* 呼吸：睡觉时缓慢起伏 */
+@keyframes breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.03); }
+}
+.pet-sleep { animation: breathe 3.2s ease-in-out infinite; }
+
+/* 开心：左右轻晃 */
+@keyframes wiggle {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-5deg); }
+  75% { transform: rotate(5deg); }
+}
+.pet-happy { animation: wiggle 0.5s ease-in-out 4; }
+
+/* 吃面：小幅度摇摆咀嚼感 */
+@keyframes munch {
+  0%, 100% { transform: rotate(0deg) scale(1); }
+  30% { transform: rotate(-3deg) scale(0.98); }
+  70% { transform: rotate(3deg) scale(1.02); }
+}
+.pet-feed { animation: munch 0.6s ease-in-out infinite; }
+
+/* 洗澡：泡泡般的轻微晃动 */
+@keyframes bubble {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-4px) rotate(-2deg); }
+}
+.pet-bath { animation: bubble 1.2s ease-in-out infinite; }
+
+/* 钓鱼：等待时的上下轻点 */
+@keyframes bobbin {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+.pet-fishing { animation: bobbin 1.4s ease-in-out infinite; }
+
+/* 抓痒：轻微扭动 */
+@keyframes scratchMove {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(4deg); }
+}
+.pet-scratch { animation: scratchMove 0.8s ease-in-out infinite; }
+
+/* 被拎起：自然下垂的小摆动 */
+@keyframes dangle {
+  0%, 100% { transform: rotate(-4deg); }
+  50% { transform: rotate(4deg); }
+}
+.pet-drag { animation: dangle 0.7s ease-in-out infinite; }
+
+/* 落地后的弹跳 */
+@keyframes dropBounce {
+  0% { transform: translateY(-18px) scale(0.96, 1.04); }
+  40% { transform: translateY(4px) scale(1.03, 0.98); }
+  70% { transform: translateY(-6px) scale(0.99, 1.01); }
+  100% { transform: translateY(0) scale(1); }
+}
+.pet-drop { animation: dropBounce 0.5s ease-out 1; }
+
+/* ===== 右键动作菜单 ===== */
+#menu {
+  position: absolute;
+  right: 6px;
+  top: 8px;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: rgba(40, 30, 20, 0.92);
+  border: 1px solid rgba(255, 200, 150, 0.4);
+  border-radius: 10px;
+  padding: 6px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+#menu[hidden] { display: none; }
+#menu button {
+  border: none;
+  background: transparent;
+  color: #fff3e6;
+  font-size: 13px;
+  text-align: left;
+  padding: 7px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+#menu button:hover { background: rgba(255, 170, 90, 0.35); }

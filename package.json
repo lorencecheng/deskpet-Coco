@@ -1,0 +1,55 @@
+{
+  "name": "deskpet-coco",
+  "productName": "DeskPet Coco",
+  "version": "0.1.0",
+  "description": "An open-source desktop pet that lives on your computer screen. 一只灵动可爱的咖啡猫桌面宠物。",
+  "main": "src/main/index.js",
+  "author": "lorencecheng",
+  "license": "MIT",
+  "keywords": [
+    "desktop-pet",
+    "electron",
+    "coffee-cat",
+    "桌宠",
+    "桌面宠物"
+  ],
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder",
+    "dist:win": "electron-builder --win",
+    "dist:win:portable": "electron-builder --win portable"
+  },
+  "devDependencies": {
+    "electron": "^30.5.1",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.deskpet.coco",
+    "productName": "DeskPet Coco",
+    "files": [
+      "src/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        "portable"
+      ],
+      "icon": "assets/icons/tray-256.png"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  }
+}

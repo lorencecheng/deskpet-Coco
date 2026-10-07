@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; img-src 'self' file: data:;">
+  <title>DeskPet Coco</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="pet">
+    <img id="petImg" draggable="false" alt="咖啡猫">
+    <!-- 右键动作菜单（默认隐藏） -->
+    <div id="menu" hidden>
+      <button data-action="happy">😺 说嗨</button>
+      <button data-action="feed">🍝 喂宽面</button>
+      <button data-action="bath">🛁 洗澡</button>
+      <button data-action="fishing">🎣 钓鱼</button>
+      <button data-action="scratch">🐾 抓痒</button>
+      <button data-action="sleep">😴 睡觉</button>
+    </div>
+  </div>
+  <script src="pet.js"></script>
+</body>
+</html>
