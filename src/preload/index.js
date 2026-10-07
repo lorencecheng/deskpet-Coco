@@ -24,5 +24,9 @@ contextBridge.exposeInMainWorld('coco', {
     const listener = () => callback();
     ipcRenderer.on('pet:chase-done', listener);
     return () => ipcRenderer.removeListener('pet:chase-done', listener);
-  }
+  },
+  /** 桌面巡游：让主进程沿屏幕四边闲逛 */
+  walk() { ipcRenderer.send('pet:walk'); },
+  /** 退出应用 */
+  quit() { ipcRenderer.send('pet:quit'); }
 });

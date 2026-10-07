@@ -11,10 +11,14 @@
 
   const SPRITE_BASE = '../../assets/sprites';
 
+  // 逐帧播放节奏：数值越小越慢、越柔和（原 6fps 偏快，降到 4fps 更舒服）
+  const ANIM_FPS = 4;
+
   // ---- 状态配置（duration=null 表示保持到被切换）----
   const STATES = {
     idle:        { duration: null, cls: 'pet-idle' },
     'idle-blink':{ duration: 280, cls: 'pet-idle' },
+    walk:        { duration: null, cls: 'pet-walk', sprite: 'idle' },
     drink:       { duration: 5200, cls: 'pet-drink' },
     yarn:        { duration: 4500, cls: 'pet-yarn' },
     chase:       { duration: null, cls: 'pet-chase' },
@@ -39,7 +43,8 @@
     onAction() { return () => {}; },
     triggerAction() {},
     dragStart() {}, dragMove() {}, dragEnd() {},
-    chase() {}, onChaseDone() { return () => {}; }
+    chase() {}, onChaseDone() { return () => {}; },
+    walk() {}, quit() {}
   };
 
   // ---- 精灵帧加载与缓存 ----
@@ -97,13 +102,14 @@
     void petImg.offsetWidth; // 强制重启 CSS 动画
     petImg.classList.add(cfg.cls || 'pet-idle');
 
-    probeFrames(name).then((frames) => {
+    const sprite = cfg.sprite || name; // 某些状态复用其他精灵帧（walk 用 idle 帧 + 走路动画）
+    probeFrames(sprite).then((frames) => {
       if (currentState !== name) return; // 状态已切换，丢弃过期帧
       if (frames.length > 1) {
-        startAnim(frames, 6);
+        startAnim(frames, ANIM_FPS);
       } else {
         stopAnim();
-        petImg.src = `${SPRITE_BASE}/${name}/frame-1.png`;
+        petImg.src = `${SPRITE_BASE}/${sprite}/frame-1.png`;
       }
     });
 
@@ -122,12 +128,12 @@
     idleLoopTimer = setTimeout(() => {
       if (currentState === 'idle') {
         const roll = Math.random();
-        if (roll < 0.62) setState('idle-blink');          // 频繁眨眼
-        else if (roll < 0.82) setState(Math.random() < 0.5 ? 'happy' : 'scratch'); // 偶尔的小动作
-        // 其余情况保持待机
+        if (roll < 0.55) setState('idle-blink');          // 眨眼
+        else if (roll < 0.68) setState(Math.random() < 0.5 ? 'happy' : 'scratch'); // 少量小动作
+        // 其余情况安静待机，动作不频繁
       }
       scheduleIdleLoop();
-    }, 2400 + Math.random() * 3600);
+    }, 3600 + Math.random() * 4800);   // 拉长间隔，动作更从容（原 2.4~6s → 3.6~8.4s）
   }
 
   function checkLongIdle() {
@@ -237,6 +243,9 @@
 
   function runAction(name) {
     if (name === 'status') { togglePanel(); return; }
+    if (name === 'quit') { api.quit(); return; }
+    // walk 由主进程驱动；这里只切换走路动画，避免与主进程双向触发形成循环
+    if (name === 'walk') { setState('walk'); return; }
     if (!STATES[name]) return;
     if (name === 'chase') { startChase(); return; }
     if (currentState === 'sleep' && name !== 'sleep') setState('idle'); // 先唤醒
@@ -248,7 +257,9 @@
   let ptr = { down: false, startX: 0, startY: 0, moved: false, dragging: false, startT: 0 };
 
   petImg.addEventListener('pointerdown', (e) => {
-    if (e.button === 2) { toggleMenu(); return; }
+    // 右键：交给 contextmenu 统一弹出，避免与 contextmenu 重复 toggle 导致菜单一闪而过
+    if (e.button === 2) { ptr.rightDown = true; return; }
+    ptr.rightDown = false;
     ptr = { down: true, startX: e.screenX, startY: e.screenY, moved: false, dragging: false, startT: Date.now() };
     try { petImg.setPointerCapture(e.pointerId); } catch (err) {}
     hideMenu();
@@ -268,6 +279,8 @@
   });
 
   function endPointer(e) {
+    // 右键抬起：保留刚弹出的菜单，不让它立刻关闭
+    if (ptr.rightDown) { ptr.rightDown = false; return; }
     if (!ptr.down) return;
     const wasDragging = ptr.dragging;
     const wasQuick = !wasDragging && (Date.now() - ptr.startT) < 320;
@@ -284,7 +297,7 @@
   }
   petImg.addEventListener('pointerup', endPointer);
   petImg.addEventListener('pointercancel', endPointer);
-  petImg.addEventListener('contextmenu', (e) => { e.preventDefault(); toggleMenu(); });
+  petImg.addEventListener('contextmenu', (e) => { e.preventDefault(); showMenu(); });
 
   function onPetClick() {
     if (currentState === 'sleep') { setState('idle'); applyInteraction('happy'); setState('happy'); return; }
@@ -296,6 +309,7 @@
   function toggleMenu() {
     menu.hidden = !menu.hidden;
   }
+  function showMenu() { menu.hidden = false; }
   function hideMenu() { menu.hidden = true; }
   document.addEventListener('click', (e) => {
     if (!menu.contains(e.target)) hideMenu();
@@ -303,7 +317,10 @@
   menu.querySelectorAll('button').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
-      runAction(btn.dataset.action);
+      const a = btn.dataset.action;
+      // 菜单点「桌面巡游」：先通知主进程开始巡游（渲染进程只切动画，不再回发）
+      if (a === 'walk') api.walk();
+      runAction(a);
       hideMenu();
     });
   });

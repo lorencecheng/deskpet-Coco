@@ -44,6 +44,13 @@ body {
 }
 .pet-idle { animation: bob 2.6s ease-in-out infinite; }
 
+/* 巡游走路：轻快的小踏步（配合主进程窗口沿桌边移动） */
+@keyframes stroll {
+  0%, 100% { transform: translateY(0) rotate(-2deg); }
+  50% { transform: translateY(-5px) rotate(2deg); }
+}
+.pet-walk { animation: stroll 0.55s ease-in-out infinite; }
+
 /* 呼吸：睡觉时缓慢起伏 */
 @keyframes breathe {
   0%, 100% { transform: scale(1); }
