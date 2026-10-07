@@ -30,7 +30,7 @@
     fishing:     { duration: 4300, cls: 'pet-fishing' },
     scratch:     { duration: 3400, cls: 'pet-scratch' },
     drag:        { duration: null, cls: 'pet-drag' },
-    drop:        { duration: 520, cls: 'pet-drop' },
+    drop:        { duration: 520, cls: 'pet-drop', sprite: 'core' },
     sleep:       { duration: null, cls: 'pet-sleep' }
   };
 
@@ -152,10 +152,14 @@
 
   // ---- 需求系统：饱食 / 清洁 / 精力 / 心情 ----
   const NEED_DEFS = {
-    hunger: { label: '饱食', icon: '🍝', threshold: 35, hint: '我饿啦~ 想吃意大利宽面~', decay: 1.1 },
-    clean:  { label: '清洁', icon: '🛁', threshold: 35, hint: '身上脏脏的~ 想洗个泡泡浴~', decay: 0.9 },
-    energy: { label: '精力', icon: '😴', threshold: 30, hint: '好困呀~ 想蜷起来睡一觉~', decay: 0.6 },
-    mood:   { label: '心情', icon: '🎈', threshold: 40, hint: '好无聊呀~ 陪我玩嘛~', decay: 1.6 }
+    hunger: { label: '饱食', icon: '🍝', threshold: 35, decay: 1.1,
+      hints: ['我饿啦~ 想吃意大利宽面~', '肚子咕咕叫，给我来碗面嘛~', '好饿……面条在哪里呀~'] },
+    clean:  { label: '清洁', icon: '🛁', threshold: 35, decay: 0.9,
+      hints: ['身上脏脏的~ 想洗个泡泡浴~', '我该洗澡啦，泡泡澡最舒服~', '毛都打结了，帮我洗香香~'] },
+    energy: { label: '精力', icon: '😴', threshold: 30, decay: 0.6,
+      hints: ['好困呀~ 想蜷起来睡一觉~', '眼皮好重……让我眯一会儿~', '累啦，先睡一觉补补能量~'] },
+    mood:   { label: '心情', icon: '🎈', threshold: 40, decay: 1.6,
+      hints: ['好无聊呀~ 陪我玩嘛~', '一个人待着好没劲，来逗逗我~', '我超想追着你的光标跑！'] }
   };
   let needs = { hunger: 100, clean: 100, energy: 100, mood: 100 };
   const lastHintAt = { hunger: 0, clean: 0, energy: 0, mood: 0 };
@@ -197,6 +201,17 @@
     panelTimer = setTimeout(() => { needsPanel.hidden = true; }, 5000);
   }
 
+  const REACT = {
+    feed:    ['宽面真好吃~ 谢谢你！', '吸溜~ 好香的一碗面！', '吃饱饱，超满足~'],
+    bath:    ['泡泡浴好舒服~ 香香哒~', '洗白白啦，我最干净！', '咕噜咕噜，泡得好惬意~'],
+    yarn:    ['毛线球最好玩啦！', '嘿嘿，看你往哪跑~', '玩得好开心呀！'],
+    chase:   ['哈！被我追到啦~', '你跑不过我哒！', '追着光标好快乐~'],
+    happy:   ['喵~ 你好呀！', '陪着我真开心~', '呼噜呼噜~'],
+    drink:   ['咖啡暖乎乎的~', '咕嘟咕嘟，好提神！', '工作日的下午茶真棒~'],
+    scratch: ['挠一挠，真舒服~', '啊~ 抓到痒处啦！', '浑身清爽~'],
+    fishing: ['嘘……鱼要上钩啦！', '今天能钓到大鱼吗~', '垂钓的时光最悠闲~'],
+    sleep:   ['晚安~ 做个好梦~', '呼……先睡一小会儿~', 'zzZ…… 别吵我哦~']
+  };
   /** 互动对需求的影响 */
   function applyInteraction(name) {
     switch (name) {
@@ -210,6 +225,8 @@
       case 'fishing': needs.mood = Math.min(100, needs.mood + 15); needs.hunger = Math.min(100, needs.hunger + 5); break;
       case 'sleep':   break; // 精力由睡觉期间的 tick 持续恢复
     }
+    const reacts = REACT[name];
+    if (reacts) showBubble(reacts[Math.floor(Math.random() * reacts.length)], 4200);
     updateIndicator();
     updatePanel();
   }
@@ -234,7 +251,8 @@
     }
     if (urgent && now - lastHintAt[urgent] > 30000) {
       lastHintAt[urgent] = now;
-      showBubble(`${NEED_DEFS[urgent].icon} ${NEED_DEFS[urgent].hint}`);
+      const hints = NEED_DEFS[urgent].hints;
+      showBubble(`${NEED_DEFS[urgent].icon} ${hints[Math.floor(Math.random() * hints.length)]}`);
     }
     updateIndicator();
     updatePanel();
