@@ -71,6 +71,7 @@ function createTray() {
   tray = new Tray(icon);
 
   const menu = Menu.buildFromTemplate([
+    { label: '查看状态', click: () => sendAction('status') },
     { label: '说嗨', click: () => sendAction('happy') },
     { label: '喝咖啡', click: () => sendAction('drink') },
     { label: '喂意大利宽面', click: () => sendAction('feed') },

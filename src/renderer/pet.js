@@ -30,6 +30,9 @@
 
   const petImg = document.getElementById('petImg');
   const menu = document.getElementById('menu');
+  const bubble = document.getElementById('bubble');
+  const indicator = document.getElementById('indicator');
+  const needsPanel = document.getElementById('needsPanel');
 
   // preload 桥；在纯浏览器调试时退化为空实现，避免报错
   const api = window.coco || {
@@ -134,9 +137,97 @@
     setTimeout(checkLongIdle, 5000);
   }
 
+  // ---- 需求系统：饱食 / 清洁 / 精力 / 心情 ----
+  const NEED_DEFS = {
+    hunger: { label: '饱食', icon: '🍝', threshold: 35, hint: '我饿啦~ 想吃意大利宽面~', decay: 1.1 },
+    clean:  { label: '清洁', icon: '🛁', threshold: 35, hint: '身上脏脏的~ 想洗个泡泡浴~', decay: 0.9 },
+    energy: { label: '精力', icon: '😴', threshold: 30, hint: '好困呀~ 想蜷起来睡一觉~', decay: 0.6 },
+    mood:   { label: '心情', icon: '🎈', threshold: 40, hint: '好无聊呀~ 陪我玩嘛~', decay: 1.6 }
+  };
+  let needs = { hunger: 100, clean: 100, energy: 100, mood: 100 };
+  const lastHintAt = { hunger: 0, clean: 0, energy: 0, mood: 0 };
+  let bubbleTimer = null;
+
+  function showBubble(text, ms) {
+    bubble.textContent = text;
+    bubble.classList.add('show');
+    clearTimeout(bubbleTimer);
+    bubbleTimer = setTimeout(() => bubble.classList.remove('show'), ms || 6000);
+  }
+
+  function updateIndicator() {
+    const low = Object.keys(NEED_DEFS).filter((k) => needs[k] < NEED_DEFS[k].threshold);
+    indicator.textContent = low.map((k) => NEED_DEFS[k].icon).join('');
+    indicator.classList.toggle('show', low.length > 0);
+  }
+
+  function barColor(v) {
+    if (v > 60) return '#8fd461';
+    if (v > 35) return '#f5c24a';
+    return '#f2706e';
+  }
+  function updatePanel() {
+    if (needsPanel.hidden) return;
+    for (const k of Object.keys(NEED_DEFS)) {
+      const fill = document.getElementById(`need-${k}`);
+      if (!fill) continue;
+      fill.style.width = `${needs[k]}%`;
+      fill.style.background = barColor(needs[k]);
+    }
+  }
+  function togglePanel() {
+    needsPanel.hidden = !needsPanel.hidden;
+    if (!needsPanel.hidden) updatePanel();
+  }
+
+  /** 互动对需求的影响 */
+  function applyInteraction(name) {
+    switch (name) {
+      case 'feed':    needs.hunger = Math.min(100, needs.hunger + 60); needs.mood = Math.min(100, needs.mood + 8); break;
+      case 'bath':    needs.clean = Math.min(100, needs.clean + 70); needs.mood = Math.min(100, needs.mood + 5); break;
+      case 'yarn':    needs.mood = Math.min(100, needs.mood + 45); needs.energy = Math.max(0, needs.energy - 12); break;
+      case 'chase':   needs.mood = Math.min(100, needs.mood + 40); needs.energy = Math.max(0, needs.energy - 15); break;
+      case 'happy':   needs.mood = Math.min(100, needs.mood + 10); break;
+      case 'drink':   needs.mood = Math.min(100, needs.mood + 12); needs.energy = Math.min(100, needs.energy + 5); break;
+      case 'scratch': needs.mood = Math.min(100, needs.mood + 5); break;
+      case 'fishing': needs.mood = Math.min(100, needs.mood + 15); needs.hunger = Math.min(100, needs.hunger + 5); break;
+      case 'sleep':   break; // 精力由睡觉期间的 tick 持续恢复
+    }
+    updateIndicator();
+    updatePanel();
+  }
+
+  /** 需求随时间变化（每 20 秒一跳） */
+  function tickNeeds() {
+    const sleeping = currentState === 'sleep';
+    const playing = currentState === 'yarn' || currentState === 'chase';
+    if (sleeping) needs.energy = Math.min(100, needs.energy + 8);
+    for (const k of Object.keys(NEED_DEFS)) {
+      let d = NEED_DEFS[k].decay;
+      if (playing && k === 'energy') d += 1.5;
+      needs[k] = Math.max(0, needs[k] - d);
+    }
+    // 提示最紧急的一项需求（每项冷却 30 秒）
+    const now = Date.now();
+    let urgent = null;
+    for (const k of Object.keys(NEED_DEFS)) {
+      if (needs[k] < NEED_DEFS[k].threshold) {
+        if (!urgent || needs[k] / NEED_DEFS[k].threshold < needs[urgent] / NEED_DEFS[urgent].threshold) urgent = k;
+      }
+    }
+    if (urgent && now - lastHintAt[urgent] > 30000) {
+      lastHintAt[urgent] = now;
+      showBubble(`${NEED_DEFS[urgent].icon} ${NEED_DEFS[urgent].hint}`);
+    }
+    updateIndicator();
+    updatePanel();
+    setTimeout(tickNeeds, 20000);
+  }
+
   // ---- 动作入口（托盘菜单、右键菜单共用）----
   function startChase() {
     if (currentState === 'sleep') setState('idle');
+    applyInteraction('chase');
     setState('chase');
     api.chase();
     // 兜底：若主进程迟迟未回报扑跳完成，自动回到开心/待机
@@ -145,9 +236,11 @@
   }
 
   function runAction(name) {
+    if (name === 'status') { togglePanel(); return; }
     if (!STATES[name]) return;
     if (name === 'chase') { startChase(); return; }
     if (currentState === 'sleep' && name !== 'sleep') setState('idle'); // 先唤醒
+    applyInteraction(name);
     setState(name);
   }
 
@@ -182,6 +275,7 @@
     ptr.dragging = false;
     if (wasDragging) {
       api.dragEnd();
+      applyInteraction('happy');
       setState('drop');
     } else if (wasQuick) {
       onPetClick();
@@ -193,7 +287,8 @@
   petImg.addEventListener('contextmenu', (e) => { e.preventDefault(); toggleMenu(); });
 
   function onPetClick() {
-    if (currentState === 'sleep') { setState('idle'); setState('happy'); return; }
+    if (currentState === 'sleep') { setState('idle'); applyInteraction('happy'); setState('happy'); return; }
+    applyInteraction('happy');
     setState('happy');
   }
 
@@ -224,4 +319,6 @@
   setState('idle');
   scheduleIdleLoop();
   checkLongIdle();
+  tickNeeds();
+  setTimeout(() => showBubble('喵~ 我是咖啡猫 Coco，右键菜单就能跟我玩~'), 2500);
 })();
