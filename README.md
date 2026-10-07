@@ -2,6 +2,8 @@
 
 An open-source desktop pet that lives on your computer screen. 一只灵动可爱的 **咖啡猫**（橘黄胖猫）桌面宠物，采用 **16bit 柔和像素风**（星露谷式复古游戏质感）。
 
+> 🇬🇧 English README: [README.en.md](README.en.md) · 🤝 想参与贡献？见 [CONTRIBUTING.md](CONTRIBUTING.md)
+
 <p align="center">
   <img src="assets/sprites/core/frame-1.png" width="180" alt="咖啡猫">
 </p>
@@ -84,24 +86,26 @@ npm run dist:win:portable   # 仅生成免安装便携版（一个 .exe，双击
 
 ```
 assets/sprites/
-├── idle/        frame-1..6 …  待机（眨眼时用 idle-blink）
+├── idle/        frame-1..3 …  待机呼吸循环
 ├── idle-blink/  frame-1 …      闭眼眨眼帧
-├── happy/       frame-1..6 …  说嗨/打招呼
-├── drink/       frame-1..6 …  喝咖啡
-├── feed/        frame-1..6 …  吃意大利宽面
-├── yarn/        frame-1..6 …  玩毛线球
-├── chase/       frame-1..6 …  追光标（扑跳）
-├── bath/        frame-1..6 …  洗澡
-├── fishing/     frame-1..6 …  钓鱼
-├── scratch/     frame-1..6 …  抓痒
+├── happy/       frame-1..2 …  说嗨/打招呼
+├── drink/       frame-1..3 …  喝咖啡（吸饮循环）
+├── feed/        frame-1..3 …  吃意大利宽面（咀嚼循环）
+├── yarn/        frame-1..3 …  玩毛线球（扑球循环）
+├── bath/        frame-1..3 …  洗澡（泡泡循环）
+├── fishing/     frame-1 …      钓鱼
+├── scratch/     frame-1 …      抓痒
+├── stretch/     frame-1..3 …  伸懒腰
+├── lookaround/  frame-1..3 …  东张西望
+├── walk/        frame-1..6 …  走路循环
 ├── drag/        frame-1 …      被拖起
-├── sleep/       frame-1..6 …  睡觉
+├── sleep/       frame-1..3 …  睡觉（呼吸循环）
 └── core/        frame-1 …      核心形象（README 封面等）
 ```
 
-- **逐帧动画（推荐）**：把同一状态多张帧命名成 `frame-1.png`、`frame-2.png`、…（最多 12 帧），应用会自动逐帧循环播放。内置状态大多是 6 帧。
+- **逐帧动画（推荐）**：把同一状态多张帧命名成 `frame-1.png`、`frame-2.png`、…（最多 12 帧），应用会自动按该状态的帧率逐帧循环播放。走路/待机/吃喝/洗澡等核心状态都内置逐帧像素循环。
 - **单帧图**：只放一张 `frame-1.png` 时，猫咪的灵动感由内置 CSS 动画（浮动/呼吸/摇摆）补足。
-- **透明背景**：推荐用透明 PNG。若用带白底图，应用不会自动去底，最好先抠图。
+- **透明背景**：推荐用透明 PNG。若用带白底图，应用不会自动去底，最好先抠图（可用 `tools/process_sprites.py`）。
 
 ## 🏗️ 项目结构
 
@@ -126,6 +130,18 @@ deskpet-coco/
 
 - **Electron** — 跨平台桌面壳，透明无边框置顶窗口成熟稳定
 - 原生 HTML / CSS / JS — 无前端框架，轻量易改
+
+## 🤝 参与贡献
+
+这是一个开源社区宠物，欢迎任何人参与！完整指引见 **[CONTRIBUTING.md](CONTRIBUTING.md)**（如何运行、加互动、画动画帧、提 Bug、发 PR）。适合新手的任务会在 GitHub 上用 **good first issue** 标签标注。
+
+我们很想做的事：
+
+- 🎵 猫咪叫声 / 背景音效
+- 🚀 更多互动（摸头、激光笔、喂零食…）
+- 🎨 更多皮肤 / 像素画风格
+- 🖥️ macOS / Linux 构建、开机自启
+- 🧪 测试与跨平台打包 CI
 
 ## 📄 License
 

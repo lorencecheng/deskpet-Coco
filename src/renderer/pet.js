@@ -16,22 +16,22 @@
 
   // ---- 状态配置（duration=null 表示保持到被切换）----
   const STATES = {
-    idle:        { duration: null, cls: 'pet-idle' },
+    idle:        { duration: null, cls: 'pet-idle', fps: 2 },
     'idle-blink':{ duration: 280, cls: 'pet-idle' },
     walk:        { duration: null, cls: 'pet-walk', fps: 7 },
-    stretch:     { duration: 2600, cls: 'pet-stretch' },
-    lookaround:  { duration: 2200, cls: 'pet-lookaround' },
-    drink:       { duration: 5200, cls: 'pet-drink' },
-    yarn:        { duration: 4500, cls: 'pet-yarn' },
+    stretch:     { duration: 2600, cls: 'pet-stretch', fps: 3 },
+    lookaround:  { duration: 2200, cls: 'pet-lookaround', fps: 3 },
+    drink:       { duration: 5200, cls: 'pet-drink', fps: 3 },
+    yarn:        { duration: 4500, cls: 'pet-yarn', fps: 4 },
     chase:       { duration: null, cls: 'pet-chase', sprite: 'walk', fps: 12 },
-    happy:       { duration: 2000, cls: 'pet-happy' },
-    feed:        { duration: 4200, cls: 'pet-feed' },
-    bath:        { duration: 5200, cls: 'pet-bath' },
+    happy:       { duration: 2000, cls: 'pet-happy', fps: 4 },
+    feed:        { duration: 4200, cls: 'pet-feed', fps: 4 },
+    bath:        { duration: 5200, cls: 'pet-bath', fps: 3 },
     fishing:     { duration: 4300, cls: 'pet-fishing' },
     scratch:     { duration: 3400, cls: 'pet-scratch' },
     drag:        { duration: null, cls: 'pet-drag' },
     drop:        { duration: 520, cls: 'pet-drop', sprite: 'core' },
-    sleep:       { duration: null, cls: 'pet-sleep' }
+    sleep:       { duration: null, cls: 'pet-sleep', fps: 2 }
   };
 
   const petImg = document.getElementById('petImg');
