@@ -15,6 +15,9 @@
   const STATES = {
     idle:        { duration: null, cls: 'pet-idle' },
     'idle-blink':{ duration: 280, cls: 'pet-idle' },
+    drink:       { duration: 5200, cls: 'pet-drink' },
+    yarn:        { duration: 4500, cls: 'pet-yarn' },
+    chase:       { duration: null, cls: 'pet-chase' },
     happy:       { duration: 2000, cls: 'pet-happy' },
     feed:        { duration: 4200, cls: 'pet-feed' },
     bath:        { duration: 5200, cls: 'pet-bath' },
@@ -32,7 +35,8 @@
   const api = window.coco || {
     onAction() { return () => {}; },
     triggerAction() {},
-    dragStart() {}, dragMove() {}, dragEnd() {}
+    dragStart() {}, dragMove() {}, dragEnd() {},
+    chase() {}, onChaseDone() { return () => {}; }
   };
 
   // ---- 精灵帧加载与缓存 ----
@@ -79,6 +83,7 @@
   let currentState = null;
   let idleSince = null;
   let autoTimer = null;
+  let chaseTimeout = null;
 
   function setState(name) {
     const cfg = STATES[name];
@@ -130,8 +135,18 @@
   }
 
   // ---- 动作入口（托盘菜单、右键菜单共用）----
+  function startChase() {
+    if (currentState === 'sleep') setState('idle');
+    setState('chase');
+    api.chase();
+    // 兜底：若主进程迟迟未回报扑跳完成，自动回到开心/待机
+    clearTimeout(chaseTimeout);
+    chaseTimeout = setTimeout(() => { if (currentState === 'chase') setState('happy'); }, 3200);
+  }
+
   function runAction(name) {
     if (!STATES[name]) return;
+    if (name === 'chase') { startChase(); return; }
     if (currentState === 'sleep' && name !== 'sleep') setState('idle'); // 先唤醒
     setState(name);
   }
@@ -200,6 +215,12 @@
 
   // ---- 启动 ----
   api.onAction(runAction);
+  api.onChaseDone(() => {
+    if (currentState === 'chase') {
+      setState('happy');
+      setTimeout(() => { if (currentState === 'happy') setState('idle'); }, 1600);
+    }
+  });
   setState('idle');
   scheduleIdleLoop();
   checkLongIdle();

@@ -72,7 +72,10 @@ function createTray() {
 
   const menu = Menu.buildFromTemplate([
     { label: '说嗨', click: () => sendAction('happy') },
+    { label: '喝咖啡', click: () => sendAction('drink') },
     { label: '喂意大利宽面', click: () => sendAction('feed') },
+    { label: '玩毛线球', click: () => sendAction('yarn') },
+    { label: '追光标', click: () => sendAction('chase') },
     { label: '洗澡', click: () => sendAction('bath') },
     { label: '钓鱼', click: () => sendAction('fishing') },
     { label: '抓痒', click: () => sendAction('scratch') },
@@ -107,6 +110,32 @@ function registerIpc() {
   });
   ipcMain.on('pet:drag-end', () => {
     dragRef = null;
+  });
+
+  // 追光标：把窗口朝光标位置分步扑跳
+  ipcMain.on('pet:chase', () => {
+    if (!win || win.isDestroyed()) return;
+    const b = win.getBounds();
+    const cx = b.x + b.width / 2;
+    const cy = b.y + b.height / 2;
+    const p = screen.getCursorScreenPoint();
+    const dx = p.x - cx;
+    const dy = p.y - cy;
+    const dist = Math.hypot(dx, dy);
+    if (dist < 10) { win.webContents.send('pet:chase-done'); return; }
+    const steps = Math.max(4, Math.min(12, Math.ceil(dist / 34)));
+    const sx = dx / dist;
+    const sy = dy / dist;
+    let i = 0;
+    const timer = setInterval(() => {
+      const [x, y] = win.getPosition();
+      win.setPosition(x + sx * 34, y + sy * 34);
+      i += 1;
+      if (i >= steps) {
+        clearInterval(timer);
+        if (!win.isDestroyed()) win.webContents.send('pet:chase-done');
+      }
+    }, 55);
   });
 }
 

@@ -17,5 +17,12 @@ contextBridge.exposeInMainWorld('coco', {
   },
   dragStart() { ipcRenderer.send('pet:drag-start'); },
   dragMove() { ipcRenderer.send('pet:drag-move'); },
-  dragEnd() { ipcRenderer.send('pet:drag-end'); }
+  dragEnd() { ipcRenderer.send('pet:drag-end'); },
+  /** 追光标：让主进程把窗口朝光标位置扑跳 */
+  chase() { ipcRenderer.send('pet:chase'); },
+  onChaseDone(callback) {
+    const listener = () => callback();
+    ipcRenderer.on('pet:chase-done', listener);
+    return () => ipcRenderer.removeListener('pet:chase-done', listener);
+  }
 });

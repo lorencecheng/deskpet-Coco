@@ -81,6 +81,27 @@ body {
 }
 .pet-fishing { animation: bobbin 1.4s ease-in-out infinite; }
 
+/* 喝咖啡：杯子般的轻晃 */
+@keyframes sip {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-2px) rotate(-1deg); }
+}
+.pet-drink { animation: sip 1.2s ease-in-out infinite; }
+
+/* 玩毛线球：兴奋的小摆动 */
+@keyframes pouncePlay {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-3px) rotate(3deg); }
+}
+.pet-yarn { animation: pouncePlay 0.7s ease-in-out infinite; }
+
+/* 追光标：蓄势待发的前倾 */
+@keyframes crouch {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+.pet-chase { animation: crouch 0.4s ease-in-out infinite; }
+
 /* 抓痒：轻微扭动 */
 @keyframes scratchMove {
   0%, 100% { transform: rotate(0deg); }
