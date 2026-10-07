@@ -369,9 +369,41 @@
   api.onWalkDir((dir) => {
     petImg.classList.toggle('pet-facing-left', dir === 'left');
   });
+
+  // ---- 小助理：把文件拖到猫身上 → 猫"吃掉"并送入回收站 ----
+  window.addEventListener('dragover', (e) => e.preventDefault());
+  window.addEventListener('drop', (e) => {
+    e.preventDefault();
+    const files = e.dataTransfer && e.dataTransfer.files;
+    if (!files || files.length === 0) return;
+    const paths = [];
+    for (const f of files) {
+      const p = api.getPathForFile ? api.getPathForFile(f) : (f.path || '');
+      if (p) paths.push(p);
+    }
+    if (paths.length === 0) return;
+    setState('feed'); // 先做出"大口吃"的动画
+    showBubble(`啊呜~ 有 ${paths.length} 个文件！看我吃掉它~ 😋`, 2600);
+    api.eatFile(paths);
+  });
+  // 吃文件结果：已送回收站 / 有没能吃掉的
+  api.onEatResult((r) => {
+    if (r && r.trash && r.trash.length) {
+      showBubble(`已把 ${r.trash.length} 个文件送到回收站啦~ 🗑️`, 5200);
+      setState('happy');
+      setTimeout(() => { if (currentState === 'happy') setState('idle'); }, 1800);
+    } else if (r && r.skipped && r.skipped.length) {
+      showBubble(`有 ${r.skipped.length} 个没能吃掉……`, 4200);
+    }
+  });
+  // 小助理提醒（久坐 / 天气等）
+  api.onRemind((msg) => {
+    if (msg) showBubble(msg, 8000);
+  });
+
   setState('idle');
   scheduleIdleLoop();
   checkLongIdle();
   tickNeeds();
-  setTimeout(() => showBubble('喵~ 我是咖啡猫 Coco，右键菜单就能跟我玩~'), 2500);
+  setTimeout(() => showBubble('喵~ 我是咖啡猫 Coco，也是你的桌面小助理：把文件拖到我身上我会帮你放进回收站；坐久了、天气有变我也会提醒你~'), 2500);
 })();

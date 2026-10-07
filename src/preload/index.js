@@ -2,7 +2,7 @@
  * DeskPet Coco — 预加载脚本
  * 通过 contextBridge 向渲染进程暴露最小化、安全的 IPC 接口。
  */
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 contextBridge.exposeInMainWorld('coco', {
   /** 订阅主进程（托盘菜单等）下发的动作 */
@@ -36,5 +36,25 @@ contextBridge.exposeInMainWorld('coco', {
   /** 退出应用 */
   quit() { ipcRenderer.send('pet:quit'); },
   /** 右键菜单开/关时让主进程临时拉高窗口，保证全部选项可见 */
-  menuResize(open) { ipcRenderer.send('pet:menu-resize', open); }
+  menuResize(open) { ipcRenderer.send('pet:menu-resize', open); },
+
+  // ---- 小助理能力 ----
+  /** 从拖拽的 File 对象解析真实路径（Electron 安全接口） */
+  getPathForFile(file) {
+    try { return webUtils.getPathForFile(file); } catch { return ''; }
+  },
+  /** 把拖到猫身上的文件"吃掉"（主进程负责送入回收站） */
+  eatFile(paths) { ipcRenderer.send('pet:eat-file', paths); },
+  /** 吃文件结果回调：{ trash: [names], skipped: [names] } */
+  onEatResult(callback) {
+    const listener = (_e, r) => callback(r);
+    ipcRenderer.on('pet:eat-file-result', listener);
+    return () => ipcRenderer.removeListener('pet:eat-file-result', listener);
+  },
+  /** 主进程下发的小助理提醒（久坐 / 天气等） */
+  onRemind(callback) {
+    const listener = (_e, msg) => callback(msg);
+    ipcRenderer.on('pet:remind', listener);
+    return () => ipcRenderer.removeListener('pet:remind', listener);
+  }
 });

@@ -2,7 +2,7 @@
  * DeskPet Coco — 主进程
  * 负责创建透明置顶窗口、托盘菜单、拖动定位、桌面巡游与动作 IPC。
  */
-const { app, BrowserWindow, Tray, Menu, ipcMain, screen, nativeImage } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, screen, nativeImage, shell, powerMonitor } = require('electron');
 const path = require('path');
 
 // 窗口尺寸：一个容纳宠物的小方块（原 320 → 缩到 256，整体缩小 20%）
@@ -29,6 +29,15 @@ let chaseLastCursor = null; // 上一次采样到的光标位置（用于判断�
 let hiddenMode = null;      // null | 'left' | 'right'
 let peekTimer = null;
 let peekAnim = null;
+
+// 小助理状态：久坐提醒 / 天气预警提醒
+let sitReminderOn = true;
+let sitThresholdMin = 60;
+let sitActiveMin = 0;
+let sitTimer = null;
+let weatherReminderOn = true;
+let weatherTimer = null;
+let lastWeatherAlert = null;
 
 /** 窗口创建后始终保持在工作区内，防止拖到屏幕外 */
 function keepInBounds() {
@@ -70,6 +79,8 @@ function createWindow() {
   });
 
   win.setAlwaysOnTop(true, 'screen-saver');
+  // 拦截页面跳转：拖文件到窗口上不要被当成打开页面，交给"吃文件"逻辑处理
+  win.webContents.on('will-navigate', (e) => e.preventDefault());
   win.loadFile(path.join(__dirname, '../renderer/index.html'));
   win.once('ready-to-show', () => win.show());
   win.on('move', keepInBounds);
@@ -238,6 +249,11 @@ function createTray() {
     { label: '抓痒', click: () => sendAction('scratch') },
     { label: '睡觉', click: () => sendAction('sleep') },
     { type: 'separator' },
+    { label: '🤖 小助理提醒', enabled: false },
+    { label: '🧍 久坐提醒', type: 'checkbox', checked: sitReminderOn, click: (mi) => { sitReminderOn = mi.checked; } },
+    { label: '🌦 天气预警提醒', type: 'checkbox', checked: weatherReminderOn, click: (mi) => { weatherReminderOn = mi.checked; } },
+    { label: '🗑️ 提示：把文件拖到猫身上，猫会吃掉它(送入回收站)', enabled: false },
+    { type: 'separator' },
     { label: '退出 DeskPet Coco', click: () => { quitting = true; app.quit(); } }
   ]);
 
@@ -273,6 +289,133 @@ function registerIpc() {
     }
     menuExpanded = !!open;
   });
+
+  // ---- 小助理：吃文件（把拖到猫身上的文件送入回收站，可恢复） ----
+  ipcMain.on('pet:eat-file', async (_e, paths) => {
+    if (!Array.isArray(paths)) return;
+    const trash = [];
+    const skipped = [];
+    const appPath = app.getAppPath();
+    for (const p of paths) {
+      if (!p || typeof p !== 'string' || !path.isAbsolute(p)) { skipped.push(p); continue; }
+      // 自我保护：不回收应用自身
+      if (appPath && (p === appPath || p.startsWith(appPath + path.sep))) { skipped.push(path.basename(p)); continue; }
+      try {
+        await shell.trashItem(p); // Windows 上移到回收站（可恢复）
+        trash.push(path.basename(p));
+      } catch {
+        skipped.push(path.basename(p));
+      }
+    }
+    if (win && !win.isDestroyed()) win.webContents.send('pet:eat-file-result', { trash, skipped });
+  });
+
+  // ---- 小助理：久坐提醒（监测连续工作时长） ----
+  function sitTick() {
+    if (!sitReminderOn || !win || win.isDestroyed()) return;
+    let idle = 0;
+    try { idle = powerMonitor.getSystemIdleTime(); } catch { idle = 0; }
+    if (idle < 120) {
+      sitActiveMin += 1;
+      if (sitActiveMin >= sitThresholdMin) {
+        const mins = sitActiveMin;
+        sitActiveMin = 0;
+        sendAction('stretch');
+        if (win && !win.isDestroyed()) win.webContents.send('pet:remind', `已连续工作约 ${mins} 分钟啦，起来伸个懒腰、喝口水吧~ ☕`);
+      }
+    } else {
+      sitActiveMin = 0; // 用户已在休息，不计时
+    }
+  }
+  function startSitMonitor() { stopSitMonitor(); sitTimer = setInterval(sitTick, 60000); }
+  function stopSitMonitor() { if (sitTimer) { clearInterval(sitTimer); sitTimer = null; } }
+
+  // ---- 小助理：天气预警提醒（IP 定位 + Open-Meteo 免费接口） ----
+  const SEVERE_CODES = [
+    { code: 95, label: '雷暴' }, { code: 96, label: '雷暴' }, { code: 99, label: '强雷暴(伴冰雹)' },
+    { code: 65, label: '大雨' }, { code: 82, label: '强降雨' },
+    { code: 75, label: '大雪' }, { code: 77, label: '大雪' },
+    { code: 66, label: '冻雨' }, { code: 67, label: '冻雨' },
+    { code: 45, label: '大雾' }, { code: 48, label: '浓雾' }
+  ];
+  // 免费 IP 定位：优先 ipinfo，失败回退 ip-api
+  async function getGeo() {
+    try {
+      const r = await fetch('https://ipinfo.io/json', { signal: AbortSignal.timeout(6000) });
+      const j = await r.json();
+      const [lat, lon] = (j.loc || '').split(',').map(Number);
+      if (Number.isFinite(lat) && Number.isFinite(lon)) {
+        return { lat, lon, city: (j.city || j.region || '你所在地区').toString() };
+      }
+    } catch { /* fallthrough */ }
+    try {
+      const r = await fetch('http://ip-api.com/json/', { signal: AbortSignal.timeout(6000) });
+      const j = await r.json();
+      if (j.status === 'success' && Number.isFinite(Number(j.lat)) && Number.isFinite(Number(j.lon))) {
+        return { lat: Number(j.lat), lon: Number(j.lon), city: (j.city || '你所在地区').toString() };
+      }
+    } catch { /* fallthrough */ }
+    throw new Error('geo-fail');
+  }
+  async function weatherTick() {
+    if (!weatherReminderOn || !win || win.isDestroyed()) return;
+    try {
+      // 1) IP 粗略定位所在地区
+      const geo = await getGeo();
+      const lat = geo.lat;
+      const lon = geo.lon;
+      const city = geo.city;
+
+      // 2) 获取未来 24h 逐小时天气码与温度
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=weather_code,temperature_2m&forecast_days=1&timezone=auto`;
+      const wxRes = await fetch(url, { signal: AbortSignal.timeout(9000) });
+      const data = await wxRes.json();
+      const codes = (data.hourly && data.hourly.weather_code) || [];
+      const temps = (data.hourly && data.hourly.temperature_2m) || [];
+      if (codes.length === 0) throw new Error('wx-empty');
+
+      // 定位当前小时下标
+      const times = (data.hourly && data.hourly.time) || [];
+      let hourIdx = 0;
+      const nowMs = Date.now();
+      for (let i = 0; i < times.length; i++) {
+        if (new Date(times[i]).getTime() <= nowMs) hourIdx = i;
+      }
+
+      // 3) 扫描未来 6 小时是否有严重天气
+      let alert = null;
+      const lookAhead = Math.min(hourIdx + 6, codes.length);
+      for (let i = hourIdx; i < lookAhead; i++) {
+        const c = codes[i];
+        const hit = SEVERE_CODES.find((s) => s.code === c);
+        if (hit) { alert = hit; break; }
+      }
+
+      // 4) 极端温度提醒
+      let maxTemp = null;
+      for (let i = hourIdx; i < lookAhead; i++) if (Number.isFinite(temps[i])) maxTemp = Math.max(maxTemp || -Infinity, temps[i]);
+      let tempAlert = null;
+      if (maxTemp !== null && maxTemp >= 35) tempAlert = `高温 ${Math.round(maxTemp)}°C`;
+      else if (maxTemp !== null && maxTemp <= -5) tempAlert = `低温 ${Math.round(maxTemp)}°C`;
+
+      const key = alert ? `code-${alert.code}` : (tempAlert ? tempAlert : null);
+      if (key && key !== lastWeatherAlert) {
+        lastWeatherAlert = key;
+        sendAction('lookaround');
+        const msg = alert
+          ? `🌦 天气提醒（${city}）：未来几小时可能有${alert.label}，出门记得带伞、注意安全哦~`
+          : `🌡 天气提醒（${city}）：未来几小时有${tempAlert}，注意防暑/保暖哦~`;
+        if (win && !win.isDestroyed()) win.webContents.send('pet:remind', msg);
+      }
+    } catch {
+      // 网络/定位失败：静默，下个周期重试
+    }
+  }
+  function startWeatherMonitor() { stopWeatherMonitor(); weatherTick(); weatherTimer = setInterval(weatherTick, 30 * 60 * 1000); }
+  function stopWeatherMonitor() { if (weatherTimer) { clearInterval(weatherTimer); weatherTimer = null; } }
+
+  startSitMonitor();     // 久坐提醒（窗口未就绪时自动跳过）
+  startWeatherMonitor(); // 天气预警提醒（失败静默重试）
 
   // 拖动宠物：用光标位置增量移动窗口
   ipcMain.on('pet:drag-start', () => {

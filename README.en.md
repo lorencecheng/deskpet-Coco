@@ -24,6 +24,7 @@ An open-source, always-on-top **desktop pet** that lives on your computer screen
   - 🎣 **Fishing** — holds a rod and waits for a bite
   - 🐾 **Scratch** — scratches its ear in delight
   - 😴 **Sleep** — curls up and naps; click it to wake up
+- **🤖 Desktop assistant** — Coco does more than pose: drag a file onto it and it **eats it (moves it to the Recycle Bin)**, it **reminds you when you've been sitting too long**, and it **warns you about sudden weather alerts** for your region.
 - **Smart AI behaviors** — blinks, waves, scratches on its own; naps when left alone for a while.
 - **Natural pacing** — animation loops are tuned to a calm, smooth rhythm so actions feel alive but not jittery.
 - **Status bubbles** — Coco tells you when it's **hungry / dirty / sleepy / bored** with a speech bubble, a small icon above its head, and a status panel; it also replies with a playful line after each interaction.
@@ -46,6 +47,16 @@ Coco has **four needs** that change over time, and it actively tells you when so
 1. **Speech bubble** — when a need drops below threshold, Coco pops a hint (30s cooldown per need, most urgent first).
 2. **Head icon** — while any need is low, a small icon (🍝🛁😴🎈) stays above its head.
 3. **Status panel** — open via right-click / tray "📊 Status" to see four color-coded progress bars (green/yellow/red).
+
+## 🤖 Assistant features
+
+Coco is a small helper that lives on your desktop:
+
+- **🗑️ Eat a file** — drag any file/folder onto Coco and it chows down and **moves it to the Recycle Bin** (recoverable). Perfect for a little tidy-up. Right-click a stray file and drag it to the cat.
+- **🧍 Sedentary reminder** — when you've been continuously working (no keyboard/mouse idle for a while) past a threshold (default 60 min), Coco stretches and pops a bubble: *"been working ~60 min, stand up and drink some water~"*. Toggle in the tray menu.
+- **🌦 Weather alert** — Coco locates your approximate region by IP and checks the next 6 hours of forecast (Open-Meteo, no API key). If severe weather is coming (thunderstorm, heavy rain, heavy snow, freezing rain, dense fog) or extreme heat/cold, it warns you. Toggle in the tray menu.
+
+Reminder toggles live in the system-tray menu under **"🤖 小助理提醒"**.
 
 ## 🚀 Run locally
 
