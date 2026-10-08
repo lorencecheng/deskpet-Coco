@@ -594,8 +594,19 @@
   const assistPanel = document.getElementById('assistPanel');
   const assistInput = document.getElementById('assistInput');
   const assistLog = document.getElementById('assistLog');
+  const assistName = document.getElementById('assistName');
   let assistLastAt = 0;
   const ASSIST_COOLDOWN = 20000; // 助理独立冷却，防刷 token / 本地模型算力
+  // 助理多轮记忆：记住最近 4 轮对话（最多 8 条），持久化到本地，重启不丢
+  const ASSIST_HISTORY_KEY = 'coco.assistHistory';
+  let assistHistory = [];
+  function loadAssistHistory() {
+    try { const h = JSON.parse(localStorage.getItem(ASSIST_HISTORY_KEY)); if (Array.isArray(h)) assistHistory = h.slice(-8); } catch {}
+  }
+  function saveAssistHistory() { try { localStorage.setItem(ASSIST_HISTORY_KEY, JSON.stringify(assistHistory.slice(-8))); } catch {} }
+  function pushAssist(role, text) { assistHistory.push({ role, text }); assistHistory = assistHistory.slice(-8); saveAssistHistory(); }
+  function clearAssistHistory() { assistHistory = []; saveAssistHistory(); }
+  loadAssistHistory();
   function appendAssist(role, text) {
     const el = document.createElement('div');
     el.className = 'assist-msg ' + role;
@@ -620,6 +631,7 @@
     hideMenu();
     if (!skinPanel.hidden) closeSkinPanel();
     if (!aiPanel.hidden) closeAiPanel();
+    if (bond && bond.getName()) assistName.value = bond.getName();
     updateAssistBadge();
     assistPanel.hidden = false;
     api.panelResize(true);
@@ -636,6 +648,11 @@
       const a = bond.assistantLevelInfo();
       user += `你和主人的羁绊等级：${a.name}（Lv${a.lv}）。你现在能提供的助理能力：${a.abilities.join('、')}。`;
     }
+    if (bond && bond.getName()) user += `主人叫「${bond.getName()}」，要用名字称呼他。`;
+    // 注入近期对话，让连续聊天更连贯
+    if (assistHistory.length) {
+      user += `你们最近的对话：\n${assistHistory.map((h) => `${h.role === 'user' ? '主人' : 'Coco'}：${h.text}`).join('\n')}\n`;
+    }
     user += `如果主人问的能力你没解锁，就懒懒地拒绝、让他先提升羁绊。请只回复一句简短的话（不超过20字），口语化、带点慵懒贱猫味，别用markdown、别解释、别列清单。主人问你：${userText}`;
     return [
       { role: 'system', content: aiConfig.systemPrompt || '你是桌面像素胖橘猫Coco，慵懒、有点贱、腹黑但不恶毒，说话简短一句话、15字内、口语化。' },
@@ -646,6 +663,7 @@
     const text = assistInput.value.trim();
     if (!text) return;
     appendAssist('user', text);
+    pushAssist('user', text);
     assistInput.value = '';
     assistSend.disabled = true;
     if (!aiConfig.enabled) {
@@ -667,11 +685,10 @@
     think.classList.add('thinking');
     api.aiChat(buildAssistantMessages(text)).then((res) => {
       think.remove();
-      if (!res || !res.ok || !res.text) {
-        appendAssist('coco', '哎，脑子短路了……可能是网络或模型问题，稍后再试~');
-      } else {
-        appendAssist('coco', res.text.trim());
-      }
+      let reply = '哎，脑子短路了……可能是网络或模型问题，稍后再试~';
+      if (res && res.ok && res.text) reply = res.text.trim();
+      appendAssist('coco', reply);
+      pushAssist('coco', reply);
       assistSend.disabled = false;
     });
   }
@@ -679,6 +696,18 @@
   document.getElementById('assistClose').addEventListener('click', closeAssistPanel);
   assistSend.addEventListener('click', sendAssist);
   assistInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendAssist(); });
+  // 自定义称呼：猫记住你叫什么
+  assistName.addEventListener('change', () => {
+    const n = assistName.value.trim();
+    if (bond) bond.setName(n);
+    if (n) { appendAssist('coco', `记住啦，我叫你「${bond.getName()}」~`); updateAssistBadge(); }
+  });
+  // 清空聊天记忆
+  document.getElementById('assistClear').addEventListener('click', () => {
+    clearAssistHistory();
+    assistLog.innerHTML = '';
+    appendAssist('coco', '好，刚才的话我就当没听见~ 🧹');
+  });
 
   // ---- 羁绊系统（bond.js）：陪伴式养成，刚领养高冷 → 越相处越亲近 ----
   const bond = window.CocoBond;
@@ -818,6 +847,8 @@
       const b = bond.levelInfo();
       user += `你和主人的羁绊等级：${b.name}（Lv${b.lv}）。`;
     }
+    // 记住主人起的名字，日常也用它称呼
+    if (bond && bond.getName()) user += `主人叫「${bond.getName()}」，要用名字称呼。`;
     if (userMsg) user += `用户说：${userMsg}。`;
     user += ' 请只输出一个JSON，形如 {"action":"blink|wash|yawn|stretch|ignore|stare|sleep|tease|play|knock|sulk","text":"一句话气泡，15字内"}，不要任何多余文字、解释或markdown。';
     return [

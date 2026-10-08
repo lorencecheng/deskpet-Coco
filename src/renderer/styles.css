@@ -413,6 +413,42 @@ body {
   text-overflow: ellipsis;
 }
 .assist-badge b { color: #ffd9a0; }
+.assist-name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 7px;
+}
+.assist-name-label {
+  font-size: 11px;
+  color: #ffe3bf;
+  flex-shrink: 0;
+}
+.assist-name-row input {
+  flex: 1;
+  min-width: 0;
+  background: rgba(0, 0, 0, 0.3);
+  color: #fff3e6;
+  border: 1px solid rgba(255, 200, 150, 0.3);
+  border-radius: 7px;
+  padding: 3px 7px;
+  font-size: 11px;
+  outline: none;
+}
+.assist-name-row input:focus { border-color: rgba(255, 170, 90, 0.7); }
+.assist-name-row input::placeholder { color: rgba(255, 227, 191, 0.4); }
+.assist-clear {
+  border: none;
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffd9b0;
+  border-radius: 6px;
+  width: 20px;
+  height: 20px;
+  font-size: 11px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.assist-clear:hover { background: rgba(255, 120, 80, 0.4); }
 .assist-log {
   flex: 1;
   min-height: 120px;

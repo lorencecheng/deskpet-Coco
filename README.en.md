@@ -74,6 +74,8 @@ Right-click → "Ask Coco" opens a chat panel — just type. It's never a stiff 
 - Requires **AI brain enabled** to actually speak (otherwise a bubble prompts you to enable it first). Offline it's just pet interaction, no assistant.
 - A badge on the panel header shows your current "assistant level + unlocked abilities" in real time.
 - A dedicated 20 s cooldown stops spam-farming tokens / local-model compute.
+- **📛 Custom name** — type a name in the panel's "call me" field and Coco will use it from then on (both the AI quips and the assistant address you by name — much more real).
+- **🧠 Multi-turn memory** — Coco remembers your last 4 exchanges (saved locally, survives restarts), so back-to-back chat needs no re-explaining; tap the 🧹 button anytime to wipe it.
 
 ## 🧠 How do you know what Coco wants?
 

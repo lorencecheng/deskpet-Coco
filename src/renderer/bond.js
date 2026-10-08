@@ -31,7 +31,7 @@
     '你是我最好的铲屎官！'
   ];
 
-  let state = { value: 0, enabled: true, lastGainBy: {}, lastOpen: 0 };
+  let state = { value: 0, enabled: true, lastGainBy: {}, lastOpen: 0, name: '' };
 
   function save() {
     state.lastOpen = Date.now();
@@ -58,6 +58,7 @@
         if (typeof d.enabled === 'boolean') state.enabled = d.enabled;
         if (d.lastGainBy && typeof d.lastGainBy === 'object') state.lastGainBy = d.lastGainBy;
         if (Number.isFinite(d.lastOpen)) state.lastOpen = d.lastOpen;
+        if (typeof d.name === 'string') state.name = d.name.slice(0, 12);
       }
     } catch {}
     applyDecaySinceLastOpen();
@@ -97,6 +98,13 @@
 
   function setEnabled(v) { state.enabled = !!v; save(); }
   function isEnabled() { return state.enabled; }
+  // 主人自定义称呼：猫记住你叫什么，AI/助理都用名字叫你（更真实）
+  function setName(n) {
+    state.name = (n || '').trim().slice(0, 12);
+    save();
+    return state.name;
+  }
+  function getName() { return state.name; }
 
   // ---- 助理能力按羁绊等级解锁（羁绊越高越得力，人设仍是慵懒贱橘） ----
   const ASSIST_ABILITIES = [
@@ -121,6 +129,7 @@
 
   window.CocoBond = {
     LEVELS, UPGRADE_MSG, ASSIST_ABILITIES,
-    levelInfo, gain, setEnabled, isEnabled, getAssistantPermission, assistantLevelInfo
+    levelInfo, gain, setEnabled, isEnabled, getAssistantPermission, assistantLevelInfo,
+    setName, getName
   };
 })();
