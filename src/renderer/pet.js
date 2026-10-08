@@ -518,6 +518,26 @@
     setTimeout(() => showBubble('第2步：在「API-KEY」菜单点创建，复制那串 Key~', 6000), 6500);
     setTimeout(() => showBubble('第3步：回到这里把 Key 粘进上面框，点「保存并启用」搞定！', 6000), 13000);
   });
+  // 本地模型一键启用（离线 · 免配置）：自动启动 + 切到 local 后端
+  document.getElementById('aiLocal').addEventListener('click', () => {
+    api.aiLocalStatus().then((st) => {
+      if (st && st.hasModel) {
+        showBubble('正在启动本地模型（首次稍慢）……', 3000);
+        api.aiLocalStart().then((r) => {
+          if (r && r.ok) {
+            aiConfig.enabled = true; aiConfig.backend = 'local'; aiConfig.baseUrl = `http://127.0.0.1:${r.port}/v1`;
+            api.aiSaveConfig(aiConfig); closeAiPanel();
+            showBubble('本地模型已就绪，我现在真的会"想"啦~ 🤖💬', 4000);
+          } else {
+            showBubble('本地模型启动失败（可能是 CPU 太慢或缺少依赖），先用免费开通试在线版吧~', 5000);
+          }
+        });
+      } else {
+        showBubble('还没装本地模型。点我会打开下载教程：装好一次，以后永久免配置离线用~', 5000);
+        api.openExternal('https://github.com/lorencecheng/deskpet-Coco/blob/main/scripts/README.local-ai.md');
+      }
+    });
+  });
 
   function updateIndicator() {
     const low = Object.keys(NEED_DEFS).filter((k) => needs[k] < NEED_DEFS[k].threshold);

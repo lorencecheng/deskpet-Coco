@@ -138,6 +138,8 @@ Right-click the pet → **🧠 AI Settings** to enable it. **Off by default and 
 
 > **Don't want to configure anything? No problem.** With AI off, Coco ships with a built-in "reads your mood" sassy local personality: it reacts differently when hungry / dirty / tired / bored (e.g. feed coffee while starving and it quips "Coffee doesn't fix hunger! I want noodles!") — alive out of the box. To get the real AI, tap **✨ Free setup (3 steps)** in AI Settings to grab a free key and paste it in — no tech knowledge needed.
 
+> **Want truly zero-config, fully offline AI?** Tap **🤖 Use local model (offline · no config)** — run the [one-click script](scripts/README.local-ai.md) once to install a tiny local model (~400 MB), and the app auto-starts it. **Fully offline, free, no API key.** See [scripts/README.local-ai.md](scripts/README.local-ai.md).
+
 - **When it triggers** (not constantly online): petting / double-click / feeding / bathing etc., plus occasional idle self-talk.
 - **Self-decides**: the AI returns `{"action":"...","text":"..."}`; Coco parses it and **chooses its own action** (wash / yawn / pretend to sleep / stare / sass…) plus a one-line bubble. It only acts while idle — never interrupts roaming or cursor-chasing.
 - **Two backends** (switch in the panel):

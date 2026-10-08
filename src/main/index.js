@@ -5,6 +5,10 @@
 const { app, BrowserWindow, Tray, Menu, ipcMain, screen, nativeImage, shell, powerMonitor } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { spawn } = require('child_process');
+const net = require('net');
+const https = require('https');
+const http = require('http');
 
 // 窗口尺寸：基础方块 + 可缩放（原 320 → 256，整体缩小 20%；支持 70%/100%/130%）
 let petW = 256;
@@ -131,6 +135,83 @@ async function aiChat(messages) {
     return null;
   }
 }
+
+// ===================== 本地模型（离线 · 免配置） =====================
+// 把轻量 llama.cpp 模型 + 运行程序放到 userData/local-ai 里（可用 scripts/fetch-local-model.ps1
+// 一键下载），应用会自动启动它，用户不用配任何 API。找不到模型就提示，不影响在线模式。
+const LOCAL_AI_DIR = () => path.join(app.getPath('userData'), 'local-ai');
+const LOCAL_PORT = 8080;
+let localServerChild = null;
+
+/** 扫描本地模型目录，返回 { exe, gguf }；没有完整可用的本地模型就返回 null */
+function localModelFiles() {
+  try {
+    // 兼容安装版（userData 可写）与开发版（仓库 models/llama）两种布局
+    const appData = app.getPath('appData'); // Windows 上即 %APPDATA%
+    const dirs = [
+      LOCAL_AI_DIR(),
+      path.join(appData, 'DeskPet Coco', 'local-ai'),
+      path.join(appData, 'deskpet-coco', 'local-ai'),
+      path.join(__dirname, '..', '..', 'models', 'llama')
+    ];
+    const files = [];
+    for (const dir of dirs) {
+      if (!fs.existsSync(dir)) continue;
+      const walk = (d) => {
+        for (const f of fs.readdirSync(d, { withFileTypes: true })) {
+          const p = path.join(d, f.name);
+          if (f.isDirectory()) walk(p);
+          else files.push(p);
+        }
+      };
+      walk(dir);
+    }
+    const exe = files.find((p) => /llama-server\.(exe|bin)$/i.test(p) || /[\\/]llama-server$/.test(p));
+    const gguf = files.find((p) => /\.gguf$/i.test(p));
+    return exe && gguf ? { exe, gguf } : null;
+  } catch { return null; }
+}
+
+/** 检测本地端口是否已被服务占用 */
+function isPortOpen(port, ms = 1500) {
+  return new Promise((resolve) => {
+    const c = net.connect({ host: '127.0.0.1', port });
+    const to = setTimeout(() => { try { c.destroy(); } catch {} resolve(false); }, ms);
+    c.on('connect', () => { clearTimeout(to); try { c.destroy(); } catch {} resolve(true); });
+    c.on('error', () => { clearTimeout(to); resolve(false); });
+  });
+}
+function setLocalBase() {
+  aiConfig.backend = 'local';
+  aiConfig.baseUrl = `http://127.0.0.1:${LOCAL_PORT}/v1`;
+  savePrefs();
+}
+function stopLocalServer() {
+  if (localServerChild) { try { localServerChild.kill(); } catch {} localServerChild = null; }
+}
+/** 启动本地模型：端口空闲则拉起 llama-server；已在跑则直接用 */
+async function startLocalServer() {
+  if (await isPortOpen(LOCAL_PORT)) { setLocalBase(); return { ok: true, port: LOCAL_PORT, spawned: false }; }
+  const files = localModelFiles();
+  if (!files) return { ok: false, reason: 'no-model' };
+  try {
+    localServerChild = spawn(files.exe, ['--model', files.gguf, '--port', String(LOCAL_PORT)], { windowsHide: true });
+    localServerChild.on('error', () => { localServerChild = null; });
+    if (localServerChild.stdout) localServerChild.stdout.on('data', () => {});
+    if (localServerChild.stderr) localServerChild.stderr.on('data', () => {});
+  } catch { return { ok: false, reason: 'spawn-fail' }; }
+  const t0 = Date.now();
+  while (Date.now() - t0 < 60000) {
+    if (await isPortOpen(LOCAL_PORT)) { setLocalBase(); return { ok: true, port: LOCAL_PORT, spawned: true }; }
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+  stopLocalServer();
+  return { ok: false, reason: 'timeout' };
+}
+
+// 退出时回收本地模型进程
+app.on('before-quit', () => { stopLocalServer(); });
+
 function applySize(s) {
   petSize = s;
   const w = Math.max(120, Math.round(256 * s));
@@ -663,6 +744,18 @@ function registerIpc() {
   ipcMain.on('pet:open-external', (_e, url) => {
     if (typeof url === 'string' && /^https?:\/\//i.test(url)) shell.openExternal(url);
   });
+
+  // ---- 本地模型（离线 · 免配置）：状态查询 / 一键启动 / 停止 ----
+  ipcMain.handle('ai:local-status', async () => {
+    const files = localModelFiles();
+    return {
+      hasModel: !!files,
+      model: files ? path.basename(files.gguf) : null,
+      running: await isPortOpen(LOCAL_PORT)
+    };
+  });
+  ipcMain.handle('ai:local-start', async () => startLocalServer());
+  ipcMain.on('ai:local-stop', () => stopLocalServer());
 
   // 拖动宠物：用光标位置增量移动窗口
   ipcMain.on('pet:drag-start', () => {

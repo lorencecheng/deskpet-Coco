@@ -78,5 +78,12 @@ contextBridge.exposeInMainWorld('coco', {
   /** 发一次对话，返回 { ok, text }；主进程失败/禁用时 ok=false */
   aiChat(messages) { return ipcRenderer.invoke('ai:chat', messages); },
   /** 用系统默认浏览器打开外部链接（仅 http/https） */
-  openExternal(url) { ipcRenderer.send('pet:open-external', url); }
+  openExternal(url) { ipcRenderer.send('pet:open-external', url); },
+  // ---- 本地模型（离线 · 免配置） ----
+  /** 查询本地模型是否已安装 / 正在运行 */
+  aiLocalStatus() { return ipcRenderer.invoke('ai:local-status'); },
+  /** 一键启动本地模型（并设为 local 后端），返回 { ok, port, reason } */
+  aiLocalStart() { return ipcRenderer.invoke('ai:local-start'); },
+  /** 停止本地模型进程 */
+  aiLocalStop() { ipcRenderer.send('ai:local-stop'); }
 });

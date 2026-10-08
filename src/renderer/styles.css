@@ -260,6 +260,13 @@ body {
   color: #eafff3;
 }
 .skin-row button.ai-wizard:hover { background: rgba(90, 200, 140, 0.45); }
+.skin-row button.ai-local {
+  flex: 1;
+  border: 1px solid rgba(120, 180, 240, 0.6);
+  background: rgba(90, 150, 220, 0.25);
+  color: #eaf3ff;
+}
+.skin-row button.ai-local:hover { background: rgba(90, 150, 220, 0.45); }
 #skinClose {
   width: 100%;
   border: none;
