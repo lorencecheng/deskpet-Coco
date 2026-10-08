@@ -11,16 +11,24 @@
     <img id="petImg" draggable="false" alt="咖啡猫">
     <div id="bubble"></div>
     <div id="indicator"></div>
-    <!-- 状态面板（默认隐藏）：饱食 / 清洁 / 精力 / 心情 / 羁绊 -->
+    <!-- 状态面板（默认隐藏）：羁绊养成 + 饱食 / 清洁 / 精力 / 心情 -->
     <div id="needsPanel" hidden>
+      <div class="panel-head"><span class="panel-title">📊 Coco 状态</span></div>
+      <!-- 羁绊养成块：越养越亲近 -->
+      <div class="bond-card">
+        <div class="bond-badge"><span id="bondIcon">🐣</span><b id="bondName">陌生</b></div>
+        <div class="bond-bar"><i id="bondFill"></i></div>
+        <div class="bond-sub" id="bondSub">刚领养，多陪陪它~</div>
+        <div class="bond-abilities" id="bondAbilities"></div>
+      </div>
       <div class="need-row"><span>🍝 饱食</span><div class="bar"><i id="need-hunger"></i></div></div>
       <div class="need-row"><span>🛁 清洁</span><div class="bar"><i id="need-clean"></i></div></div>
       <div class="need-row"><span>😴 精力</span><div class="bar"><i id="need-energy"></i></div></div>
       <div class="need-row"><span>🎈 心情</span><div class="bar"><i id="need-mood"></i></div></div>
-      <div class="need-row bond-row"><span>💞 <b id="bondLevel">羁绊</b></span><div class="bar"><i id="need-bond"></i></div></div>
     </div>
     <!-- 右键动作菜单（默认隐藏） -->
     <div id="menu" hidden>
+      <div class="menu-title">🐱 咖啡猫 · 菜单</div>
       <button data-action="status">📊 状态</button>
       <button data-action="walk">🚶 桌面巡游</button>
       <button data-action="happy">😺 说嗨</button>

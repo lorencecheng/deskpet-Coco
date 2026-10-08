@@ -728,6 +728,14 @@
     const cols = ['#9aa0a6', '#aacf7a', '#f5c24a', '#ff9d4d', '#f2706e'];
     return cols[lv] || cols[0];
   }
+  // 羁绊等级称号：图标 + 名字（养成感）
+  const BOND_META = [
+    { icon: '🐣', name: '陌生' },
+    { icon: '🤝', name: '初识' },
+    { icon: '🐾', name: '熟悉' },
+    { icon: '💛', name: '亲近' },
+    { icon: '💖', name: '挚友' }
+  ];
 
   function updateIndicator() {
     const low = Object.keys(NEED_DEFS).filter((k) => needs[k] < NEED_DEFS[k].threshold);
@@ -748,14 +756,38 @@
       fill.style.width = `${needs[k]}%`;
       fill.style.background = barColor(needs[k]);
     }
-    // 羁绊进度条 + 等级名
-    const bFill = document.getElementById('need-bond');
-    const bLv = document.getElementById('bondLevel');
+    // 羁绊养成块：等级图标 + 称号 + 进度 + 距下一级 + 已解锁助理能力
+    const bFill = document.getElementById('bondFill');
+    const bIcon = document.getElementById('bondIcon');
+    const bName = document.getElementById('bondName');
+    const bSub = document.getElementById('bondSub');
+    const bAbl = document.getElementById('bondAbilities');
     if (bFill && bond) {
-      const info = bond.isEnabled() ? bond.levelInfo() : { name: '开放', progress: 1, lv: 4, next: null };
-      bFill.style.width = `${Math.round(info.progress * 100)}%`;
-      bFill.style.background = bondBarColor(info.lv);
-      if (bLv) bLv.textContent = `羁绊 ${info.name}`;
+      const info = bond.isEnabled() ? bond.levelInfo() : null;
+      if (info) {
+        const meta = BOND_META[info.lv] || BOND_META[0];
+        if (bIcon) bIcon.textContent = meta.icon;
+        if (bName) bName.textContent = `${meta.name} · Lv${info.lv}`;
+        bFill.style.width = `${Math.round(info.progress * 100)}%`;
+        bFill.style.background = bondBarColor(info.lv);
+        if (bSub) {
+          bSub.textContent = info.next
+            ? `距「${info.next.name}」还差 ${info.next.min - info.value} 点`
+            : '已是最高等级，你就是我的全部 💕';
+        }
+        if (bAbl) {
+          const abilities = bond.assistantLevelInfo().abilities;
+          bAbl.innerHTML = abilities.map((a) => `<span class="bond-chip hi">✓ ${a}</span>`).join('')
+            || '<span class="bond-chip">继续培养解锁助理能力</span>';
+        }
+      } else {
+        if (bIcon) bIcon.textContent = '⚙️';
+        if (bName) bName.textContent = '开放';
+        bFill.style.width = '100%';
+        bFill.style.background = bondBarColor(4);
+        if (bSub) bSub.textContent = '羁绊已关闭 · 全部交互开放';
+        if (bAbl) bAbl.innerHTML = '';
+      }
     }
   }
   let panelTimer = null;
