@@ -34,6 +34,7 @@ An open-source, always-on-top **desktop pet** that lives on your computer screen
 - **Small footprint** — sized ~40% smaller than the original so it doesn't crowd your desktop.
 - **Lightweight** — built on Electron with a frameless transparent window; low resource usage.
 - **🎨 Skin Workshop** — restyle without drawing: pick a preset (orange / black / white / cream / gray / tabby-brown / calico — all real, existing cat colors) or pick a custom **fur** color. The pixel art, limbs, pink blush, and props (bowl / noodles / coffee mug) always stay intact. Copy a **color code** and send it to a friend — they paste it and get the exact same cat (social cat-sharing!).
+- **🧠 AI brain (optional)** — plug in a lightweight, free model and Coco really "thinks": based on your interactions and its current mood/hunger it picks its own action and quips a line. Off by default and fully offline; only when enabled does it go online, and on any failure it falls back to local lines. Supports **local llama.cpp** or any **OpenAI-compatible API** (Qwen / Doubao etc.).
 - **Fully customizable** — sprites live in `assets/sprites/<state>/frame-N.png`; swap images to restyle without touching code.
 
 ## 🧠 How do you know what Coco wants?
@@ -130,6 +131,27 @@ Open the palette panel via **🎨 Skin Workshop** in the right-click menu. Resty
 - **Color-code sharing**: copy the code (e.g. `coco:Orange#f6a64b`, with the color name for clarity) from the panel; a friend pastes it in their own Coco to get the identical cat. Perfect for sharing on social feeds — let's pass the cat around!
 
 > The scheme is saved locally (`localStorage`) and persists across restarts.
+
+## 🧠 AI brain (optional — make Coco sassier and livelier)
+
+Right-click the pet → **🧠 AI Settings** to enable it. **Off by default and fully offline**; once enabled, Coco uses a language model to pick its own action and say its own line — lazier, sassier, more character.
+
+- **When it triggers** (not constantly online): petting / double-click / feeding / bathing etc., plus occasional idle self-talk.
+- **Self-decides**: the AI returns `{"action":"...","text":"..."}`; Coco parses it and **chooses its own action** (wash / yawn / pretend to sleep / stare / sass…) plus a one-line bubble. It only acts while idle — never interrupts roaming or cursor-chasing.
+- **Two backends** (switch in the panel):
+  1. **Local llama.cpp** (free, offline, best privacy): backend `local`, base URL `http://127.0.0.1:8080/v1`, model = your loaded gguf name (e.g. `qwen1.5-0.5b`).
+  2. **Online OpenAI-compatible API** (e.g. Qwen / Doubao free tiers): backend `online`, fill in the compatible base URL + API key + model name.
+- **Graceful fallback**: offline / bad key / timeout / malformed output → auto-falls back to built-in local lines; the app never crashes.
+- **Anti-spam**: default min interval 15 s (tunable 10/30/60 s) so it never burns tokens.
+- **Privacy**: your API key is stored only in local `prefs.json`; requests are made only when you've enabled AI and an event fires — no middleman server. Only cat state and short chat text are sent; no other PC data is read.
+
+### Quick start — Qwen free tier
+1. Get an `API-KEY` and the compatible base URL (e.g. `https://dashscope.aliyuncs.com/compatible-mode/v1`) from Alibaba Cloud.
+2. In **🧠 AI Settings**: enable → backend "在线 API" → fill base URL, key, model (e.g. `qwen-turbo`) → save.
+
+### Local llama.cpp — fully offline
+1. Download [llama.cpp](https://github.com/ggerganov/llama.cpp) and run: `./llama-server -m qwen1.5-0.5b-instruct-q4.gguf --port 8080`.
+2. In **🧠 AI Settings**: backend "本地 llama.cpp" → base URL `http://127.0.0.1:8080/v1` → model = your loaded name → save.
 
 ## 🏗️ Project structure
 

@@ -235,6 +235,24 @@ body {
 }
 .skin-row button:hover { background: rgba(255, 170, 90, 0.35); }
 .skin-hint { font-size: 10px; color: #e8cfa8; margin: 6px 0; }
+/* AI 大脑面板：普通输入框 / 下拉 / 多行文本框 / 开关 */
+.skin-row input[type='text'], .skin-row input[type='password'] {
+  flex: 1; min-width: 0; font-size: 11px;
+  background: rgba(0,0,0,0.3); color: #fff3e6;
+  border: 1px solid rgba(255,200,150,0.3); border-radius: 5px; padding: 3px 5px;
+}
+.skin-row select {
+  flex: 1; font-size: 11px;
+  background: rgba(0,0,0,0.3); color: #fff3e6;
+  border: 1px solid rgba(255,200,150,0.3); border-radius: 5px; padding: 3px 4px;
+}
+.skin-row textarea {
+  flex: 1; min-width: 0; font-size: 11px; resize: vertical;
+  background: rgba(0,0,0,0.3); color: #fff3e6;
+  border: 1px solid rgba(255,200,150,0.3); border-radius: 5px; padding: 4px 5px;
+  font-family: inherit;
+}
+.ai-toggle { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #fff3e6; cursor: pointer; }
 #skinClose {
   width: 100%;
   border: none;

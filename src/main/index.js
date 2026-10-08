@@ -62,6 +62,20 @@ function keepInBounds() {
 
 // ---- 外观 / 行为设置：尺寸、透明度、全屏隐藏、边缘吸附（跨启动记住） ----
 const PREFS_FILE = path.join(app.getPath('userData'), 'prefs.json');
+
+// ---- AI 大脑配置（可选）：本地 llama.cpp 或任意 OpenAI 兼容 API ----
+// 默认关闭：不开 AI 时完全不联网，走原有本地性格行为池；开了才发请求，失败自动降级回本地。
+let aiConfig = {
+  enabled: false,
+  backend: 'online',       // 'online'（在线 API） | 'local'（本地 llama.cpp server）
+  baseUrl: '',             // 例：在线 https://dashscope.aliyuncs.com/compatible-mode/v1；本地 http://127.0.0.1:8080/v1
+  apiKey: '',
+  model: 'qwen-turbo',
+  temperature: 0.8,
+  maxTokens: 80,
+  cooldownMs: 15000,       // 最小调用间隔，防刷 token
+  systemPrompt: '你是桌面像素胖橘猫 Coco，性格慵懒、有点贱、腹黑但不恶毒，不爱过度热情。说话要简短，一句话，15 字以内，口语化，不要用 markdown，不要解释。'
+};
 function loadPrefs() {
   try {
     if (fs.existsSync(PREFS_FILE)) {
@@ -73,6 +87,7 @@ function loadPrefs() {
       if (typeof d.sitReminderOn === 'boolean') sitReminderOn = d.sitReminderOn;
       if (Number.isFinite(d.sitThresholdMin)) sitThresholdMin = d.sitThresholdMin;
       if (typeof d.weatherReminderOn === 'boolean') weatherReminderOn = d.weatherReminderOn;
+      if (d.aiConfig && typeof d.aiConfig === 'object') Object.assign(aiConfig, d.aiConfig);
     }
   } catch {}
   petW = Math.max(120, Math.round(256 * petSize));
@@ -83,9 +98,38 @@ function savePrefs() {
     fs.writeFileSync(PREFS_FILE, JSON.stringify({
       size: petSize, opacity: petOpacity,
       fullscreenHideOn, edgeSnapOn,
-      sitReminderOn, sitThresholdMin, weatherReminderOn
+      sitReminderOn, sitThresholdMin, weatherReminderOn,
+      aiConfig
     }, null, 2));
   } catch {}
+}
+/** 向 OpenAI 兼容端点发一次对话，返回文本；失败/超时/禁用都返回 null（渲染端负责降级） */
+async function aiChat(messages) {
+  if (!aiConfig.enabled) return null;
+  const base = (aiConfig.baseUrl || '').trim().replace(/\/+$/, '');
+  if (!base) return null;
+  try {
+    const resp = await fetch(`${base}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${aiConfig.apiKey || ''}`
+      },
+      body: JSON.stringify({
+        model: aiConfig.model,
+        messages,
+        temperature: aiConfig.temperature,
+        max_tokens: aiConfig.maxTokens
+      }),
+      signal: AbortSignal.timeout(15000)
+    });
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    const t = data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+    return typeof t === 'string' ? t.trim() : null;
+  } catch {
+    return null;
+  }
 }
 function applySize(s) {
   petSize = s;
@@ -417,7 +461,7 @@ function registerIpc() {
 
   // 皮肤工坊面板开/关：临时拉高窗口容纳面板，宠物居中位置不变
   let panelExpanded = false;
-  const SKIN_PANEL_H = 360;
+  const SKIN_PANEL_H = 480;
   ipcMain.on('pet:panel-resize', (_e, open) => {
     if (!win || win.isDestroyed()) return;
     if (!!open === panelExpanded) return;
@@ -604,6 +648,17 @@ function registerIpc() {
 
   // 手动查天气：渲染进程点「查看天气」→ 立即返回当前天气概况
   ipcMain.on('pet:weather-check', () => { weatherTick(true); });
+
+  // ---- AI 大脑：配置读写与对话（OpenAI 兼容端点） ----
+  ipcMain.handle('ai:get-config', () => aiConfig);
+  ipcMain.on('ai:save-config', (_e, cfg) => {
+    if (cfg && typeof cfg === 'object') { Object.assign(aiConfig, cfg); savePrefs(); }
+  });
+  ipcMain.handle('ai:chat', async (_e, messages) => {
+    const text = await aiChat(Array.isArray(messages) ? messages : []);
+    if (text === null) return { ok: false, text: '' };
+    return { ok: true, text };
+  });
 
   // 拖动宠物：用光标位置增量移动窗口
   ipcMain.on('pet:drag-start', () => {

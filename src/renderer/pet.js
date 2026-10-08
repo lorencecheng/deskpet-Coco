@@ -146,10 +146,15 @@
         const busy = mood < 35 ? 0.25 : (mood > 65 ? 0.62 : 0.42);
         const roll = Math.random();
         if (roll < busy) {
-          const action = IDLE_ACTIONS[Math.floor(Math.random() * IDLE_ACTIONS.length)];
-          setState(action);
-          const reacts = IDLE_BUBBLES[action];
-          if (reacts && action !== 'idle-blink') showBubble(reacts[Math.floor(Math.random() * reacts.length)], 3600);
+          // AI 开启时，让它自己挑个动作+吐槽一句；失败再回本地随机动作
+          maybeAiLine('我正闲着发呆').then((usedAi) => {
+            if (!usedAi && currentState === 'idle') {
+              const action = IDLE_ACTIONS[Math.floor(Math.random() * IDLE_ACTIONS.length)];
+              setState(action);
+              const reacts = IDLE_BUBBLES[action];
+              if (reacts && action !== 'idle-blink') showBubble(reacts[Math.floor(Math.random() * reacts.length)], 3600);
+            }
+          });
         } else {
           setState('idle-blink'); // 安静待机时偶尔眨个眼
         }
@@ -466,6 +471,46 @@
   });
   document.getElementById('skinClose').addEventListener('click', closeSkinPanel);
 
+  // ---- AI 大脑面板 ----
+  function openAiPanel() {
+    hideMenu();
+    if (!skinPanel.hidden) closeSkinPanel();
+    aiEnabled.checked = !!aiConfig.enabled;
+    aiBackend.value = aiConfig.backend || 'online';
+    aiBaseUrl.value = aiConfig.baseUrl || '';
+    aiKey.value = aiConfig.apiKey || '';
+    aiModel.value = aiConfig.model || 'qwen-turbo';
+    aiPrompt.value = aiConfig.systemPrompt || '';
+    aiCooldown.value = String(aiConfig.cooldownMs || 15000);
+    aiPanel.hidden = false;
+    api.panelResize(true);
+  }
+  function closeAiPanel() {
+    aiPanel.hidden = true;
+    api.panelResize(false);
+  }
+  function saveAiConfig() {
+    aiConfig.enabled = aiEnabled.checked;
+    aiConfig.backend = aiBackend.value;
+    aiConfig.baseUrl = aiBaseUrl.value.trim();
+    aiConfig.apiKey = aiKey.value.trim();
+    aiConfig.model = aiModel.value.trim() || 'qwen-turbo';
+    aiConfig.systemPrompt = aiPrompt.value.trim();
+    aiConfig.cooldownMs = parseInt(aiCooldown.value, 10) || 15000;
+    api.aiSaveConfig(aiConfig);
+    showBubble(aiConfig.enabled ? 'AI 大脑已开启，我要开始嘴欠啦~ 🧠' : '已关闭 AI，回到本地乖乖模式~', 3200);
+  }
+  const aiEnabled = document.getElementById('aiEnabled');
+  const aiBackend = document.getElementById('aiBackend');
+  const aiBaseUrl = document.getElementById('aiBaseUrl');
+  const aiKey = document.getElementById('aiKey');
+  const aiModel = document.getElementById('aiModel');
+  const aiPrompt = document.getElementById('aiPrompt');
+  const aiCooldown = document.getElementById('aiCooldown');
+  const aiPanel = document.getElementById('aiPanel');
+  document.getElementById('aiSave').addEventListener('click', () => { saveAiConfig(); closeAiPanel(); });
+  document.getElementById('aiClose').addEventListener('click', closeAiPanel);
+
   function updateIndicator() {
     const low = Object.keys(NEED_DEFS).filter((k) => needs[k] < NEED_DEFS[k].threshold);
     indicator.textContent = low.map((k) => NEED_DEFS[k].icon).join('');
@@ -506,6 +551,53 @@
     fishing: ['嘘……鱼要上钩啦！', '今天能钓到大鱼吗~', '垂钓的时光最悠闲~'],
     sleep:   ['晚安~ 做个好梦~', '呼……先睡一小会儿~', 'zzZ…… 别吵我哦~']
   };
+
+  // ===================== AI 大脑（可选，慵懒贱猫） =====================
+  // 关闭 AI 时完全离线：所有行为走本地性格池；开启后 AI 生成 {action,text}，
+  // 解析失败/断网/超时都自动降级回本地文案，绝不影响程序运行。
+  let aiConfig = { enabled: false, backend: 'online', baseUrl: '', apiKey: '', model: 'qwen-turbo', temperature: 0.8, maxTokens: 80, cooldownMs: 15000, systemPrompt: '' };
+  let lastAiAt = 0;
+  // AI 动作名 → 本地状态：让 AI 也能"决定"猫做什么（仅待机时生效，避免打断巡游/追光标）
+  const AI_ACTION_STATES = {
+    blink: 'idle-blink', wash: 'groom', yawn: 'yawn', stretch: 'stretch',
+    ignore: 'idle', stare: 'lookaround', sleep: 'sleep', tease: 'happy'
+  };
+  function parseAiJson(s) {
+    try {
+      const m = (s || '').match(/\{[\s\S]*\}/);
+      if (!m) return null;
+      const o = JSON.parse(m[0]);
+      if (!o || typeof o.text !== 'string' || !o.text.trim()) return null;
+      return { action: typeof o.action === 'string' ? o.action : 'idle', text: o.text.trim() };
+    } catch { return null; }
+  }
+  function buildAiMessages(eventText, userMsg) {
+    const needsText = Object.keys(NEED_DEFS).map((k) => `${NEED_DEFS[k].label}:${Math.round(needs[k])}%`).join('，');
+    let user = `当前状态：${needsText}。最近事件：${eventText}。`;
+    if (userMsg) user += `用户说：${userMsg}。`;
+    user += ' 请只输出一个JSON，形如 {"action":"blink|wash|yawn|stretch|ignore|stare|sleep|tease","text":"一句话气泡，15字内"}，不要任何多余文字、解释或markdown。';
+    return [
+      { role: 'system', content: aiConfig.systemPrompt || '你是桌面像素胖橘猫Coco，慵懒、有点贱、腹黑但不恶毒，说话简短一句话、15字内、口语化。' },
+      { role: 'user', content: user }
+    ];
+  }
+  /** 尝试让 AI 说一句话（可顺带选动作）。成功返回 true；AI 未开/冷却/失败返回 false。 */
+  async function maybeAiLine(eventText, opts) {
+    opts = opts || {};
+    if (!aiConfig.enabled) return false;
+    const now = Date.now();
+    if (now - lastAiAt < (aiConfig.cooldownMs || 15000)) return false;
+    lastAiAt = now;
+    const res = await api.aiChat(buildAiMessages(eventText, opts.userMsg));
+    if (!res || !res.ok || !res.text) return false;
+    const p = parseAiJson(res.text);
+    if (!p) return false;
+    const canAct = opts.doAction && (currentState === 'idle' || currentState === 'idle-blink');
+    if (canAct && AI_ACTION_STATES[p.action]) setState(AI_ACTION_STATES[p.action]);
+    if (p.text) showBubble(p.text, 4000);
+    return true;
+  }
+
   /** 互动对需求的影响 */
   function applyInteraction(name) {
     switch (name) {
@@ -519,8 +611,15 @@
       case 'fishing': needs.mood = Math.min(100, needs.mood + 15); needs.hunger = Math.min(100, needs.hunger + 5); break;
       case 'sleep':   break; // 精力由睡觉期间的 tick 持续恢复
     }
-    const reacts = REACT[name];
-    if (reacts) showBubble(reacts[Math.floor(Math.random() * reacts.length)], 4200);
+    // AI 开启时优先用 AI 的贱猫台词，失败再回落本地固定文案
+    const evtMap = { feed: '你喂了我意大利宽面', bath: '你帮我洗澡', yarn: '你陪我玩毛线球', chase: '我追着你的光标跑', happy: '你摸了我一下', drink: '你请我喝咖啡', scratch: '你帮我抓痒', fishing: '我在钓鱼', sleep: '我要睡觉了' };
+    const evt = evtMap[name] || name;
+    maybeAiLine(evt, { doAction: true }).then((usedAi) => {
+      if (!usedAi) {
+        const reacts = REACT[name];
+        if (reacts) showBubble(reacts[Math.floor(Math.random() * reacts.length)], 4200);
+      }
+    });
     updateIndicator();
     updatePanel();
     saveNeeds();
@@ -572,6 +671,7 @@
     if (name === 'status') { showStatus(); return; }
     if (name === 'quit') { api.quit(); return; }
     if (name === 'skin') { openSkinPanel(); return; }
+    if (name === 'ai') { openAiPanel(); return; }
     if (name === 'weather') { showBubble('喵？让我看看今天的天气~ ☁️', 2000); api.checkWeather(); return; }
     // walk 由主进程驱动；这里只切换走路动画，避免与主进程双向触发形成循环
     if (name === 'walk') { setState('walk'); return; }
@@ -645,12 +745,14 @@
       showBubble('喵？你一直在看我吗~ 😺', 3000);
     }
   });
-  // 双击：高兴地蹦一下
+  // 双击：高兴地蹦一下（AI 开启时让它吐槽）
   petImg.addEventListener('dblclick', () => {
     if (currentState === 'sleep') setState('idle');
     petImg.classList.add('pet-jump');
     setTimeout(() => petImg.classList.remove('pet-jump'), 620);
-    showBubble('嘿嘿，跳一下！✨', 2200);
+    maybeAiLine('你双击了我').then((usedAi) => {
+      if (!usedAi) showBubble('嘿嘿，跳一下！✨', 2200);
+    });
   });
 
   // ---- 右键动作菜单 ----
@@ -739,5 +841,6 @@
   tickNeeds();
   restoreSkin(); // 恢复上次保存的皮肤配色
   if (skinScheme.active) applySkin(skinScheme);
+  api.aiGetConfig().then((cfg) => { if (cfg && typeof cfg === 'object') aiConfig = cfg; }); // 恢复 AI 配置
   setTimeout(() => showBubble('喵~ 我是咖啡猫 Coco，也是你的桌面小助理：把文件拖到我身上我会帮你放进回收站；坐久了、天气有变我也会提醒你~'), 2500);
 })();

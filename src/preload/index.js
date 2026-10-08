@@ -68,5 +68,13 @@ contextBridge.exposeInMainWorld('coco', {
   /** 读取精灵图片为 dataURL（调色用），relPath 形如 "idle/frame-1.png" */
   readSprite(relPath) { return ipcRenderer.invoke('read-sprite', relPath); },
   /** 手动查询当前天气（主进程立即返回天气概况） */
-  checkWeather() { ipcRenderer.send('pet:weather-check'); }
+  checkWeather() { ipcRenderer.send('pet:weather-check'); },
+
+  // ---- AI 大脑 ----
+  /** 读取 AI 配置 */
+  aiGetConfig() { return ipcRenderer.invoke('ai:get-config'); },
+  /** 保存 AI 配置 */
+  aiSaveConfig(cfg) { ipcRenderer.send('ai:save-config', cfg); },
+  /** 发一次对话，返回 { ok, text }；主进程失败/禁用时 ok=false */
+  aiChat(messages) { return ipcRenderer.invoke('ai:chat', messages); }
 });

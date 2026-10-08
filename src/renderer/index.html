@@ -33,6 +33,7 @@
       <button data-action="weather">🌤 查看天气</button>
       <button data-action="sleep">😴 睡觉</button>
       <button data-action="skin">🎨 皮肤工坊</button>
+      <button data-action="ai">🧠 AI 设置</button>
       <button data-action="quit">🚪 退出</button>
     </div>
     <!-- 皮肤工坊面板（默认隐藏） -->
@@ -57,6 +58,31 @@
         <button id="skinExport">复制</button><button id="skinImport">粘贴</button></div>
       <div class="skin-hint">把配色码发给朋友，对方「粘贴」就能得到同款猫咪~</div>
       <button id="skinClose">完成 ✔</button>
+    </div>
+    <!-- AI 大脑设置面板（默认隐藏） -->
+    <div id="aiPanel" hidden>
+      <div class="skin-title">🧠 AI 大脑（可选）</div>
+      <div class="skin-row"><label class="ai-toggle"><input type="checkbox" id="aiEnabled"> 启用 AI（关闭则完全离线、用本地文案）</label></div>
+      <div class="skin-row"><span>后端</span>
+        <select id="aiBackend">
+          <option value="online">在线 API</option>
+          <option value="local">本地 llama.cpp</option>
+        </select>
+      </div>
+      <div class="skin-row"><span>接口地址</span><input id="aiBaseUrl" placeholder="https://…/v1 或 http://127.0.0.1:8080/v1"></div>
+      <div class="skin-row"><span>API Key</span><input id="aiKey" type="password" placeholder="留空则不带鉴权头"></div>
+      <div class="skin-row"><span>模型</span><input id="aiModel" placeholder="qwen-turbo / 本地模型名"></div>
+      <div class="skin-row"><span>人设提示词</span><textarea id="aiPrompt" rows="3"></textarea></div>
+      <div class="skin-row"><span>调用冷却</span>
+        <select id="aiCooldown">
+          <option value="10000">10 秒</option>
+          <option value="15000" selected>15 秒</option>
+          <option value="30000">30 秒</option>
+          <option value="60000">60 秒</option>
+        </select>
+      </div>
+      <div class="skin-row"><button id="aiSave">保存并启用</button><button id="aiClose">关闭</button></div>
+      <div class="skin-hint">在线用通义/豆包等兼容接口填 Key；本地用 llama.cpp server 填 http://127.0.0.1:8080/v1。Key 只存本机。</div>
     </div>
   </div>
   <script src="pet.js"></script>
