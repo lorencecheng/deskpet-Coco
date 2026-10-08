@@ -68,7 +68,7 @@ const PREFS_FILE = path.join(app.getPath('userData'), 'prefs.json');
 let aiConfig = {
   enabled: false,
   backend: 'online',       // 'online'（在线 API） | 'local'（本地 llama.cpp server）
-  baseUrl: '',             // 例：在线 https://dashscope.aliyuncs.com/compatible-mode/v1；本地 http://127.0.0.1:8080/v1
+  baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',  // 默认预填通义千问兼容接口（国内可用）
   apiKey: '',
   model: 'qwen-turbo',
   temperature: 0.8,

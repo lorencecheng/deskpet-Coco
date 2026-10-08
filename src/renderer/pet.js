@@ -555,7 +555,7 @@
   // ===================== AI 大脑（可选，慵懒贱猫） =====================
   // 关闭 AI 时完全离线：所有行为走本地性格池；开启后 AI 生成 {action,text}，
   // 解析失败/断网/超时都自动降级回本地文案，绝不影响程序运行。
-  let aiConfig = { enabled: false, backend: 'online', baseUrl: '', apiKey: '', model: 'qwen-turbo', temperature: 0.8, maxTokens: 80, cooldownMs: 15000, systemPrompt: '' };
+  let aiConfig = { enabled: false, backend: 'online', baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', apiKey: '', model: 'qwen-turbo', temperature: 0.8, maxTokens: 80, cooldownMs: 15000, systemPrompt: '' };
   let lastAiAt = 0;
   // AI 动作名 → 本地状态：让 AI 也能"决定"猫做什么（仅待机时生效，避免打断巡游/追光标）
   const AI_ACTION_STATES = {
