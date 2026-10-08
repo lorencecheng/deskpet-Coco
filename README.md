@@ -5,6 +5,15 @@ An open-source desktop pet that lives on your computer screen. 一只灵动可�
 > 🇬🇧 English README: [README.en.md](README.en.md) · 🤝 想参与贡献？见 [CONTRIBUTING.md](CONTRIBUTING.md)
 
 <p align="center">
+  <img src="https://img.shields.io/github/stars/lorencecheng/deskpet-Coco?style=flat-square&label=%E2%AD%90%20Star&color=ff9f43">
+  <img src="https://img.shields.io/github/license/lorencecheng/deskpet-Coco?style=flat-square&label=License&color=6dd5a0">
+  <img src="https://img.shields.io/badge/Electron-Desktop%20Pet-eee?style=flat-square&logo=electron&logoColor=00d8ff">
+  <img src="https://img.shields.io/badge/pixel%20art-16bit-ff6b6b?style=flat-square">
+</p>
+
+> ⭐ 喜欢 Coco？点个 **Star** 支持一下，让更多铲屎官能领养它～ 想一起把它做得更好？[参与贡献](CONTRIBUTING.md) · [English](README.en.md)
+
+<p align="center">
   <img src="assets/sprites/core/frame-1.png" width="180" alt="咖啡猫">
 </p>
 
