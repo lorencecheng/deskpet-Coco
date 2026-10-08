@@ -20,6 +20,11 @@
   --r-md: 10px;
   --r-sm: 7px;
   --shadow: 0 12px 30px rgba(0, 0, 0, 0.55), inset 0 0 0 1px rgba(255, 200, 150, 0.08);
+  /* 宠物本体光效：让猫咪从桌面浮出来，和暖橘 UI 一体（换主题改这里） */
+  --pet-glow-a: rgba(255, 180, 110, 0.5);
+  --pet-glow-b: rgba(255, 150, 80, 0.28);
+  --pet-glow-c: rgba(255, 140, 70, 0.16);
+  --pet-ground: rgba(0, 0, 0, 0.3);
 }
 
 html, body {
@@ -57,6 +62,11 @@ body {
   pointer-events: auto;
   image-rendering: auto;
   -webkit-user-drag: none;
+  /* 令牌驱动的暖光描边 + 柔和落地影：猫咪整体更"一体"、从桌面浮起来 */
+  filter: drop-shadow(0 0 2px var(--pet-glow-a))
+          drop-shadow(0 0 10px var(--pet-glow-b))
+          drop-shadow(0 0 24px var(--pet-glow-c))
+          drop-shadow(0 7px 10px var(--pet-ground));
 }
 
 /* ===== 灵动动画（CSS 让单帧精灵也“活”起来）===== */
@@ -178,6 +188,39 @@ body {
   100% { transform: translateY(0) scale(1); }
 }
 .pet-drop { animation: dropBounce 0.5s ease-out 1; }
+
+/* 羁绊升级：猫高兴地连蹦两下（!important 覆盖当前状态动画，叠加不冲突） */
+@keyframes celebrateJump {
+  0%, 100% { transform: scaleX(var(--facing, 1)) translateY(0); }
+  30% { transform: scaleX(var(--facing, 1)) translateY(-34px) scale(1.15); }
+  55% { transform: scaleX(var(--facing, 1)) translateY(0) scale(0.9); }
+  75% { transform: scaleX(var(--facing, 1)) translateY(-12px) scale(1.06); }
+}
+#petImg.pet-celebrate {
+  animation: celebrateJump 0.9s ease 1, celebrateJump 0.9s ease 0.95s 1 !important;
+}
+
+/* 羁绊升级庆祝彩屑层（毛线球 + 彩色像素小点，全屏飘落） */
+#confetti {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 40;
+}
+.confetti-piece {
+  position: absolute;
+  top: -28px;
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0;
+  animation: confettiFall var(--d, 2s) linear var(--dl, 0s) forwards;
+}
+@keyframes confettiFall {
+  0% { transform: translateY(-10px) translateX(0) rotate(0deg); opacity: 0; }
+  8% { opacity: 1; }
+  100% { transform: translateY(115vh) translateX(var(--drift, 0px)) rotate(var(--spin, 300deg)); opacity: 0.9; }
+}
 
 /* ===== 右键动作菜单 ===== */
 #menu {

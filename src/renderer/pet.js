@@ -722,7 +722,37 @@
       const info = bond.levelInfo();
       showBubble(`💞 羁绊升级：${info.name}！${bond.UPGRADE_MSG[info.lv] || ''}`, 4600);
       updateIndicator(); updatePanel();
+      celebrate(); // 升级爽感：猫蹦跳 + 全屏掉毛线球彩屑
     }
+  }
+  // 羁绊升级全屏庆祝：猫连蹦两下 + 毛线球/彩色像素点从头顶散开飘落
+  function celebrate() {
+    const img = document.getElementById('petImg');
+    img.classList.remove('pet-celebrate');
+    void img.offsetWidth; // 强制重排，让动画能重新触发
+    img.classList.add('pet-celebrate');
+    setTimeout(() => img.classList.remove('pet-celebrate'), 1900);
+    const box = document.getElementById('confetti');
+    if (!box) return;
+    const colors = ['#ff9a4d', '#ffd9a0', '#ff7a33', '#f5c24a', '#ff6b6b', '#8fd461', '#7ec8e3'];
+    const count = 26;
+    for (let i = 0; i < count; i++) {
+      const s = document.createElement('span');
+      s.className = 'confetti-piece';
+      const yarn = i % 4 === 0; // 每 4 个夹一个毛线球，其余是彩色小点
+      const size = 6 + Math.random() * 9;
+      s.style.left = (Math.random() * 100) + '%';
+      s.style.width = size + 'px';
+      s.style.height = size + 'px';
+      s.style.background = yarn ? 'transparent' : colors[(Math.random() * colors.length) | 0];
+      if (yarn) { s.textContent = '🧶'; s.style.fontSize = (size + 8) + 'px'; s.style.lineHeight = '1'; }
+      s.style.setProperty('--d', (1.6 + Math.random() * 1.4) + 's');
+      s.style.setProperty('--dl', (Math.random() * 0.5) + 's');
+      s.style.setProperty('--drift', ((Math.random() * 200) - 100) + 'px');
+      s.style.setProperty('--spin', ((Math.random() * 540) - 270) + 'deg');
+      box.appendChild(s);
+    }
+    setTimeout(() => { if (box) box.innerHTML = ''; }, 3600);
   }
   function bondBarColor(lv) {
     const cols = ['#9aa0a6', '#aacf7a', '#f5c24a', '#ff9d4d', '#f2706e'];
