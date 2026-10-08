@@ -6,9 +6,15 @@ const { app, BrowserWindow, Tray, Menu, ipcMain, screen, nativeImage, shell, pow
 const path = require('path');
 const fs = require('fs');
 
-// 窗口尺寸：一个容纳宠物的小方块（原 320 → 缩到 256，整体缩小 20%）
-const PET_W = 256;
-const PET_H = 256;
+// 窗口尺寸：基础方块 + 可缩放（原 320 → 256，整体缩小 20%；支持 70%/100%/130%）
+let petW = 256;
+let petH = 256;
+let petSize = 1;      // 尺寸预设：0.7 / 1 / 1.3
+let petOpacity = 1;   // 透明度：1 / 0.8 / 0.6
+
+// 外观/窗口行为开关
+let fullscreenHideOn = true; // 检测到全屏应用时自动隐藏
+let edgeSnapOn = true;       // 拖到屏幕边缘时贴边吸附（关闭则退回"边缘藏猫"）
 
 let win = null;
 let tray = null;
@@ -54,13 +60,88 @@ function keepInBounds() {
   if (x !== b.x || y !== b.y) win.setPosition(x, y);
 }
 
+// ---- 外观 / 行为设置：尺寸、透明度、全屏隐藏、边缘吸附（跨启动记住） ----
+const PREFS_FILE = path.join(app.getPath('userData'), 'prefs.json');
+function loadPrefs() {
+  try {
+    if (fs.existsSync(PREFS_FILE)) {
+      const d = JSON.parse(fs.readFileSync(PREFS_FILE, 'utf8'));
+      if (Number.isFinite(d.size)) petSize = d.size;
+      if (Number.isFinite(d.opacity)) petOpacity = d.opacity;
+      if (typeof d.fullscreenHideOn === 'boolean') fullscreenHideOn = d.fullscreenHideOn;
+      if (typeof d.edgeSnapOn === 'boolean') edgeSnapOn = d.edgeSnapOn;
+      if (typeof d.sitReminderOn === 'boolean') sitReminderOn = d.sitReminderOn;
+      if (Number.isFinite(d.sitThresholdMin)) sitThresholdMin = d.sitThresholdMin;
+      if (typeof d.weatherReminderOn === 'boolean') weatherReminderOn = d.weatherReminderOn;
+    }
+  } catch {}
+  petW = Math.max(120, Math.round(256 * petSize));
+  petH = Math.max(120, Math.round(256 * petSize));
+}
+function savePrefs() {
+  try {
+    fs.writeFileSync(PREFS_FILE, JSON.stringify({
+      size: petSize, opacity: petOpacity,
+      fullscreenHideOn, edgeSnapOn,
+      sitReminderOn, sitThresholdMin, weatherReminderOn
+    }, null, 2));
+  } catch {}
+}
+function applySize(s) {
+  petSize = s;
+  const w = Math.max(120, Math.round(256 * s));
+  const h = Math.max(120, Math.round(256 * s));
+  petW = w; petH = h;
+  if (win && !win.isDestroyed()) {
+    const b = win.getBounds();
+    // 以窗口中心为锚缩放，位置不变
+    const nx = Math.round(b.x + (b.width - w) / 2);
+    const ny = Math.round(b.y + (b.height - h) / 2);
+    win.setBounds({ x: nx, y: ny, width: w, height: h });
+    win.setPosition(nx, ny);
+  }
+  savePrefs();
+}
+function applyOpacity(v) {
+  petOpacity = v;
+  if (win && !win.isDestroyed()) win.setOpacity(v);
+  savePrefs();
+}
+
+// ---- 全屏自动隐藏：检测到全屏应用（游戏 / 播放器）时，猫悄悄藏起来 ----
+let fsHidden = false; // 是否因全屏而隐藏
+function updateFullscreenState() {
+  if (!win || win.isDestroyed()) return;
+  if (!fullscreenHideOn) return;
+  // workArea 覆盖整个显示器（任务栏/顶栏被全屏占满）即视为全屏模式
+  const full = screen.getAllDisplays().some((d) =>
+    d.workArea.x === d.bounds.x && d.workArea.y === d.bounds.y &&
+    d.workArea.width === d.bounds.width && d.workArea.height === d.bounds.height);
+  if (full && !fsHidden) {
+    fsHidden = true;
+    stopWandering();
+    stopChase();
+    win.hide();
+  } else if (!full && fsHidden) {
+    fsHidden = false;
+    win.show();
+  }
+}
+function startFullscreenWatch() {
+  try {
+    screen.on('display-metrics-changed', updateFullscreenState);
+    screen.on('display-added', updateFullscreenState);
+    screen.on('display-removed', updateFullscreenState);
+  } catch {}
+}
+
 function createWindow() {
   const wa = screen.getPrimaryDisplay().workArea;
   win = new BrowserWindow({
-    width: PET_W,
-    height: PET_H,
-    x: wa.x + wa.width - PET_W - 48,
-    y: wa.y + wa.height - PET_H - 48,
+    width: petW,
+    height: petH,
+    x: wa.x + wa.width - petW - 48,
+    y: wa.y + wa.height - petH - 48,
     transparent: true,
     frame: false,
     alwaysOnTop: true,
@@ -83,7 +164,10 @@ function createWindow() {
   // 拦截页面跳转：拖文件到窗口上不要被当成打开页面，交给"吃文件"逻辑处理
   win.webContents.on('will-navigate', (e) => e.preventDefault());
   win.loadFile(path.join(__dirname, '../renderer/index.html'));
-  win.once('ready-to-show', () => win.show());
+  win.once('ready-to-show', () => {
+    if (petOpacity < 1) win.setOpacity(petOpacity);
+    win.show();
+  });
   win.on('move', keepInBounds);
   win.on('closed', () => { win = null; });
 }
@@ -123,7 +207,7 @@ function enterEdgeHide(edge) {
   const HIDE_PX = 28; // 藏起来后屏幕边露出的宽度
   let hx;
   if (edge === 'right') hx = wa.x + wa.width - HIDE_PX;
-  else hx = wa.x + HIDE_PX - PET_W;
+  else hx = wa.x + HIDE_PX - petW;
   const [, y] = win.getPosition();
   win.setPosition(Math.round(hx), y);
   // 周期性探头：滑出 ~1.4s 再滑回去
@@ -153,8 +237,8 @@ function enterEdgeHide(edge) {
 /** 把窗口平滑移动到 (tx, ty)，到位后回调（慢速、自然，配合走路动画） */
 function moveWindowTo(tx, ty, onDone) {
   const wa = screen.getPrimaryDisplay().workArea;
-  tx = Math.max(wa.x, Math.min(wa.x + wa.width - PET_W, tx));
-  ty = Math.max(wa.y, Math.min(wa.y + wa.height - PET_H, ty));
+  tx = Math.max(wa.x, Math.min(wa.x + wa.width - petW, tx));
+  ty = Math.max(wa.y, Math.min(wa.y + wa.height - petH, ty));
   const [sx0, sy0] = win.getPosition();
   const dx = tx - sx0;
   const dy = ty - sy0;
@@ -189,17 +273,17 @@ function runWanderLeg() {
   let tx = 0;
   let ty = 0;
   if (edge === 'bottom') {
-    ty = wa.y + wa.height - PET_H - m;
-    tx = wa.x + m + Math.random() * (wa.width - PET_W - 2 * m);
+    ty = wa.y + wa.height - petH - m;
+    tx = wa.x + m + Math.random() * (wa.width - petW - 2 * m);
   } else if (edge === 'top') {
     ty = wa.y + m;
-    tx = wa.x + m + Math.random() * (wa.width - PET_W - 2 * m);
+    tx = wa.x + m + Math.random() * (wa.width - petW - 2 * m);
   } else if (edge === 'left') {
     tx = wa.x + m;
-    ty = wa.y + m + Math.random() * (wa.height - PET_H - 2 * m);
+    ty = wa.y + m + Math.random() * (wa.height - petH - 2 * m);
   } else {
-    tx = wa.x + wa.width - PET_W - m;
-    ty = wa.y + m + Math.random() * (wa.height - PET_H - 2 * m);
+    tx = wa.x + wa.width - petW - m;
+    ty = wa.y + m + Math.random() * (wa.height - petH - 2 * m);
   }
   // 先切走路动画，再告知朝左/朝右（顺序重要：否则渲染端 setState 会清掉镜像类）
   sendAction('walk');
@@ -260,7 +344,27 @@ function createTray() {
         { label: '90 分钟', type: 'radio', checked: sitThresholdMin === 90, click: () => setSitThreshold(90) }
       ]
     },
-    { label: '🌦 天气预警提醒', type: 'checkbox', checked: weatherReminderOn, click: (mi) => { weatherReminderOn = mi.checked; } },
+    { label: '🌦 天气预警提醒', type: 'checkbox', checked: weatherReminderOn, click: (mi) => { weatherReminderOn = mi.checked; savePrefs(); } },
+    { type: 'separator' },
+    { label: '🎛️ 外观与窗口', enabled: false },
+    {
+      label: '透明度',
+      submenu: [
+        { label: '100%（不透明）', type: 'radio', checked: petOpacity === 1, click: () => applyOpacity(1) },
+        { label: '80%', type: 'radio', checked: petOpacity === 0.8, click: () => applyOpacity(0.8) },
+        { label: '60%', type: 'radio', checked: petOpacity === 0.6, click: () => applyOpacity(0.6) }
+      ]
+    },
+    {
+      label: '尺寸',
+      submenu: [
+        { label: '小 (70%)', type: 'radio', checked: petSize === 0.7, click: () => applySize(0.7) },
+        { label: '中 (100%)', type: 'radio', checked: petSize === 1, click: () => applySize(1) },
+        { label: '大 (130%)', type: 'radio', checked: petSize === 1.3, click: () => applySize(1.3) }
+      ]
+    },
+    { label: '🖥️ 全屏时自动隐藏', type: 'checkbox', checked: fullscreenHideOn, click: (mi) => { fullscreenHideOn = mi.checked; if (!fullscreenHideOn) { fsHidden = false; if (win && !win.isDestroyed() && !win.isVisible()) win.show(); } savePrefs(); } },
+    { label: '🧲 拖到屏幕边缘吸附', type: 'checkbox', checked: edgeSnapOn, click: (mi) => { edgeSnapOn = mi.checked; savePrefs(); } },
     { label: '🗑️ 提示：把文件拖到猫身上，猫会吃掉它(送入回收站)', enabled: false },
     { type: 'separator' },
     { label: '退出 DeskPet Coco', click: () => { quitting = true; app.quit(); } }
@@ -300,12 +404,13 @@ function registerIpc() {
     if (!win || win.isDestroyed()) return;
     if (!!open === menuExpanded) return;
     const [x, y, w, h] = [win.getBounds().x, win.getBounds().y, win.getBounds().width, win.getBounds().height];
+    const target = open ? Math.max(MENU_OPEN_H, petH) : petH;
     if (open) {
-      const delta = MENU_OPEN_H - h;
-      win.setBounds({ x, y: Math.round(y - delta / 2), width: w, height: MENU_OPEN_H });
+      const delta = target - h;
+      win.setBounds({ x, y: Math.round(y - delta / 2), width: w, height: target });
     } else {
-      const delta = h - PET_H;
-      win.setBounds({ x, y: Math.round(y + delta / 2), width: w, height: PET_H });
+      const delta = h - petH;
+      win.setBounds({ x, y: Math.round(y + delta / 2), width: w, height: petH });
     }
     menuExpanded = !!open;
   });
@@ -317,7 +422,7 @@ function registerIpc() {
     if (!win || win.isDestroyed()) return;
     if (!!open === panelExpanded) return;
     const b = win.getBounds();
-    const target = open ? SKIN_PANEL_H : PET_H;
+    const target = open ? Math.max(SKIN_PANEL_H, petH) : petH;
     const delta = target - b.height;
     win.setBounds({ x: b.x, y: Math.round(b.y - delta / 2), width: b.width, height: target });
     panelExpanded = !!open;
@@ -520,11 +625,17 @@ function registerIpc() {
   ipcMain.on('pet:drag-end', () => {
     dragRef = null;
     if (!win || win.isDestroyed()) return;
-    // 拖到左/右屏幕边缘附近 → 猫藏起来，偶尔探头偷看
     const wa = screen.getPrimaryDisplay().workArea;
-    const [x] = win.getPosition();
-    if (x + PET_W > wa.x + wa.width - 70) enterEdgeHide('right');
-    else if (x < wa.x + 70) enterEdgeHide('left');
+    const [x, y] = win.getPosition();
+    if (edgeSnapOn) {
+      // 吸附模式：靠近左/右边缘时贴边蹲坐（不再藏起来），关闭吸附则退回藏猫
+      const SNAP_PX = 40;
+      if (x + petW > wa.x + wa.width - SNAP_PX) win.setPosition(wa.x + wa.width - petW, y);
+      else if (x < wa.x + SNAP_PX) win.setPosition(wa.x, y);
+    } else {
+      if (x + petW > wa.x + wa.width - 70) enterEdgeHide('right');
+      else if (x < wa.x + 70) enterEdgeHide('left');
+    }
   });
 
   // 追光标：进入持续追踪模式——猫每帧读取光标位置，朝它跑过去；
@@ -596,9 +707,11 @@ if (!gotLock) {
   });
 
   app.whenReady().then(() => {
+    loadPrefs(); // 先恢复上次的外观/行为设置（尺寸、透明度、开关）
     registerIpc();
     createWindow();
     createTray();
+    startFullscreenWatch(); // 检测全屏应用时自动隐藏
     // 调试/演示用：COC_AUTOWALK=1 时启动后自动开始桌面巡游
     if (process.env.COC_AUTOWALK === '1') setTimeout(startWandering, 1500);
     // 调试/演示用：COC_AUTOCHASE=1 时启动后自动进入追光标模式（端到端：渲染端 startChase → 主进程持续追踪）

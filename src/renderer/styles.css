@@ -104,6 +104,21 @@ body {
 }
 .pet-drink { animation: sip 1.2s ease-in-out infinite; }
 
+/* 洗脸舔爪：轻缓地左右摆动 */
+@keyframes groomMove {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-3px) rotate(3deg); }
+}
+.pet-groom { animation: groomMove 1.1s ease-in-out infinite; }
+
+/* 打哈欠：小幅下沉再回弹 */
+@keyframes yawnMove {
+  0%, 100% { transform: translateY(0) scale(1); }
+  45% { transform: translateY(1px) scale(0.97); }
+  65% { transform: translateY(0) scale(1.03); }
+}
+.pet-yawn { animation: yawnMove 1.6s ease-in-out infinite; }
+
 /* 玩毛线球：兴奋的小摆动 */
 @keyframes pouncePlay {
   0%, 100% { transform: translateY(0) rotate(0deg); }

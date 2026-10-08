@@ -21,6 +21,8 @@
     walk:        { duration: null, cls: 'pet-walk', fps: 7 },
     stretch:     { duration: 2600, cls: 'pet-stretch', fps: 3 },
     lookaround:  { duration: 2200, cls: 'pet-lookaround', fps: 3 },
+    groom:       { duration: 3400, cls: 'pet-groom', fps: 3 },   // 洗脸舔爪
+    yawn:        { duration: 2800, cls: 'pet-yawn', fps: 3 },    // 打哈欠犯困
     drink:       { duration: 5200, cls: 'pet-drink', fps: 3 },
     yarn:        { duration: 4500, cls: 'pet-yarn', fps: 4 },
     chase:       { duration: null, cls: 'pet-chase', sprite: 'walk', fps: 12 },
@@ -128,16 +130,34 @@
     if (cfg.duration) autoTimer = setTimeout(() => setState('idle'), cfg.duration);
   }
 
-  // ---- 待机时的随机灵动行为：眨眼 / 偶尔挥手、挠痒 / 长时间发呆则睡觉 ----
+  // ---- 待机时的随机灵动行为：眨眼 / 洗脸 / 打哈欠 / 挠痒，并根据心情与饱食度联动 ----
   let idleLoopTimer = null;
+  const IDLE_ACTIONS = ['idle-blink', 'groom', 'yawn', 'scratch'];
+  const IDLE_BUBBLES = {
+    groom: ['洗脸脸，做个干净小猫~ 🧼', '舔舔爪子，理理毛~', '洗香香，美美哒~'],
+    yawn:  ['哈——好困呀~ 🥱', '打个哈欠，眯一会儿~', '有点犯困了呢~']
+  };
   function scheduleIdleLoop() {
     clearTimeout(idleLoopTimer);
     idleLoopTimer = setTimeout(() => {
       if (currentState === 'idle') {
+        const mood = needs.mood;
+        // 心情低落 → 动作变少、更安静；心情好 → 更多小动作
+        const busy = mood < 35 ? 0.25 : (mood > 65 ? 0.62 : 0.42);
         const roll = Math.random();
-        if (roll < 0.55) setState('idle-blink');          // 眨眼
-        else if (roll < 0.68) setState(Math.random() < 0.5 ? 'happy' : 'scratch'); // 少量小动作
-        // 其余情况安静待机，动作不频繁
+        if (roll < busy) {
+          const action = IDLE_ACTIONS[Math.floor(Math.random() * IDLE_ACTIONS.length)];
+          setState(action);
+          const reacts = IDLE_BUBBLES[action];
+          if (reacts && action !== 'idle-blink') showBubble(reacts[Math.floor(Math.random() * reacts.length)], 3600);
+        } else {
+          setState('idle-blink'); // 安静待机时偶尔眨个眼
+        }
+        // 饱食度很低时：更主动讨食，气泡提示（不真的喂）
+        if (needs.hunger < NEED_DEFS.hunger.threshold && Math.random() < 0.5) {
+          const begs = NEED_DEFS.hunger.hints;
+          showBubble(`🍝 ${begs[Math.floor(Math.random() * begs.length)]} 丢个文件给我吃掉吧~`, 4200);
+        }
       }
       scheduleIdleLoop();
     }, 3600 + Math.random() * 4800);   // 拉长间隔，动作更从容（原 2.4~6s → 3.6~8.4s）

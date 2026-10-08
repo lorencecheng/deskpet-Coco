@@ -13,7 +13,10 @@ An open-source, always-on-top **desktop pet** that lives on your computer screen
 - **Pixel-art character** — the whole cat is hand-crafted 16-bit pixel animation: idle, walking, and every interaction is a real pixel animation loop.
 - **Always-on-top** — Coco stays above your windows and keeps you company while you work.
 - **🚶 Desktop roaming** — Coco naturally strolls along the screen edges and corners, walks side to side, occasionally stops to **stretch or look around**, then keeps going; flips to face its walking direction and auto-stops after a while. (Trigger via right-click or tray menu "Roam".)
-- **Drag anywhere** — grab Coco with the mouse and drop it anywhere; drag it to the far left/right edge and it **hides** into the screen edge, occasionally peeking out to look around, then tucks back in.
+- **Drag anywhere** — grab Coco with the mouse and drop it anywhere; by default it **snaps** to the left/right screen edge on landing. Toggle in the tray to fall back to **edge-hiding** (it tucks into the edge and peeks out to look around).
+- **🖥️ Auto-hide on fullscreen** — when you open a fullscreen app (game / player), Coco tucks itself away so it never blocks the view; it returns when you exit fullscreen (toggleable in the tray).
+- **🎛️ Opacity / size** — in the tray you can make Coco semi-transparent (100% / 80% / 60%) or switch between Small / Medium / Large sizes to fit your screen.
+- **Lively idle actions** — while idle Coco randomly blinks, **washes its face**, **yawns**, or scratches; it's livelier when happy, quieter when down, and begs for food more when hungry.
 - **Eight interactions** (right-click the pet or use the tray menu):
   - 😺 **Say hi** — waves a paw
   - ☕ **Drink coffee** — sips a hot mug (a true coffee cat)
@@ -25,7 +28,7 @@ An open-source, always-on-top **desktop pet** that lives on your computer screen
   - 🐾 **Scratch** — scratches its ear in delight
   - 😴 **Sleep** — curls up and naps; click it to wake up
 - **🤖 Desktop assistant** — Coco does more than pose: drag a file onto it and it **eats it (moves it to the Recycle Bin)**, it **reminds you when you've been sitting too long**, and it **warns you about sudden weather alerts** for your region.
-- **Smart AI behaviors** — blinks, waves, scratches on its own; naps when left alone for a while.
+- **Smart AI behaviors** — blinks, **washes its face, yawns**, and scratches on its own; naps when left alone for a while; livelier when happy, quieter when down, and begs more for food when hungry.
 - **Natural pacing** — animation loops are tuned to a calm, smooth rhythm so actions feel alive but not jittery.
 - **Status bubbles** — Coco tells you when it's **hungry / dirty / sleepy / bored** with a speech bubble, a small icon above its head, and a status panel; it also replies with a playful line after each interaction.
 - **Small footprint** — sized ~40% smaller than the original so it doesn't crowd your desktop.
@@ -75,7 +78,7 @@ npm start       # launch the desktop pet
 | Double-click the pet | Coco does a happy little jump |
 | Drag the pet | Pick it up and drop it anywhere (it bounces on landing) |
 | Right-click the pet | Interaction menu (Roam / Feed / Bath / Fish / Scratch / Check weather / Sleep / Exit…) |
-| Tray icon | Lives in the system tray; right-click for Roam, all interactions, or Exit |
+| Tray icon | Lives in the system tray; right-click for Roam, all interactions, appearance settings (opacity / size / fullscreen-hide / edge-snap), or Exit |
 
 > 💾 **Local care system** — Coco's four needs (**satiety / cleanliness / energy / mood**) are saved locally: feeding it noodles/files fills it up, bathing cleans it, playing yarn/chase makes it happy but tired; ignoring it for too long slowly drains the bars and it asks you to play. It persists across restarts — like a little buddy that needs your care.
 
