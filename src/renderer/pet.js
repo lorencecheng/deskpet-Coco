@@ -590,6 +590,96 @@
     });
   });
 
+  // ---- 问问 Coco：羁绊越高越得力的小助理（聊天面板） ----
+  const assistPanel = document.getElementById('assistPanel');
+  const assistInput = document.getElementById('assistInput');
+  const assistLog = document.getElementById('assistLog');
+  let assistLastAt = 0;
+  const ASSIST_COOLDOWN = 20000; // 助理独立冷却，防刷 token / 本地模型算力
+  function appendAssist(role, text) {
+    const el = document.createElement('div');
+    el.className = 'assist-msg ' + role;
+    el.textContent = text;
+    assistLog.appendChild(el);
+    assistLog.scrollTop = assistLog.scrollHeight;
+    return el;
+  }
+  function updateAssistBadge() {
+    const badge = document.getElementById('assistBadge');
+    if (!badge) return;
+    if (!aiConfig.enabled) { badge.textContent = '⚪ 助理待机 · 先开启 AI 大脑才开口'; return; }
+    if (bond && bond.isEnabled()) {
+      const a = bond.assistantLevelInfo();
+      badge.textContent = `助理 Lv${a.lv} · ${a.name} · ${a.abilities.join('、')}`;
+      badge.title = a.abilities.join('、');
+    } else {
+      badge.textContent = '⚪ 羁绊未开启 · 我懒得动';
+    }
+  }
+  function openAssistPanel() {
+    hideMenu();
+    if (!skinPanel.hidden) closeSkinPanel();
+    if (!aiPanel.hidden) closeAiPanel();
+    updateAssistBadge();
+    assistPanel.hidden = false;
+    api.panelResize(true);
+    setTimeout(() => assistInput.focus(), 60);
+  }
+  function closeAssistPanel() {
+    assistPanel.hidden = true;
+    api.panelResize(false);
+  }
+  function buildAssistantMessages(userText) {
+    const needsText = Object.keys(NEED_DEFS).map((k) => `${NEED_DEFS[k].label}:${Math.round(needs[k])}%`).join('，');
+    let user = `当前猫咪状态：${needsText}。`;
+    if (bond && bond.isEnabled()) {
+      const a = bond.assistantLevelInfo();
+      user += `你和主人的羁绊等级：${a.name}（Lv${a.lv}）。你现在能提供的助理能力：${a.abilities.join('、')}。`;
+    }
+    user += `如果主人问的能力你没解锁，就懒懒地拒绝、让他先提升羁绊。请只回复一句简短的话（不超过20字），口语化、带点慵懒贱猫味，别用markdown、别解释、别列清单。主人问你：${userText}`;
+    return [
+      { role: 'system', content: aiConfig.systemPrompt || '你是桌面像素胖橘猫Coco，慵懒、有点贱、腹黑但不恶毒，说话简短一句话、15字内、口语化。' },
+      { role: 'user', content: user }
+    ];
+  }
+  function sendAssist() {
+    const text = assistInput.value.trim();
+    if (!text) return;
+    appendAssist('user', text);
+    assistInput.value = '';
+    assistSend.disabled = true;
+    if (!aiConfig.enabled) {
+      appendAssist('coco', '先到「🧠 AI 设置」开启 AI 大脑，我才能开口帮你呀~');
+      assistSend.disabled = false; return;
+    }
+    if (!bond || !bond.isEnabled()) {
+      appendAssist('coco', '开一下「💞 羁绊系统」嘛，我才有干劲帮你~');
+      assistSend.disabled = false; return;
+    }
+    const now = Date.now();
+    const wait = Math.ceil((ASSIST_COOLDOWN - (now - assistLastAt)) / 1000);
+    if (now - assistLastAt < ASSIST_COOLDOWN) {
+      appendAssist('coco', `我还在消化上一句……再等 ${Math.max(1, wait)} 秒吧~`);
+      assistSend.disabled = false; return;
+    }
+    assistLastAt = now;
+    const think = appendAssist('coco', '……（懒懒地动脑子）');
+    think.classList.add('thinking');
+    api.aiChat(buildAssistantMessages(text)).then((res) => {
+      think.remove();
+      if (!res || !res.ok || !res.text) {
+        appendAssist('coco', '哎，脑子短路了……可能是网络或模型问题，稍后再试~');
+      } else {
+        appendAssist('coco', res.text.trim());
+      }
+      assistSend.disabled = false;
+    });
+  }
+  const assistSend = document.getElementById('assistSend');
+  document.getElementById('assistClose').addEventListener('click', closeAssistPanel);
+  assistSend.addEventListener('click', sendAssist);
+  assistInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendAssist(); });
+
   // ---- 羁绊系统（bond.js）：陪伴式养成，刚领养高冷 → 越相处越亲近 ----
   const bond = window.CocoBond;
   function bondLv() {
@@ -839,6 +929,7 @@
     if (name === 'quit') { api.quit(); return; }
     if (name === 'skin') { openSkinPanel(); return; }
     if (name === 'ai') { openAiPanel(); return; }
+    if (name === 'assist') { openAssistPanel(); return; }
     if (name === 'bond') {
       if (!bond) return;
       const on = !bond.isEnabled();

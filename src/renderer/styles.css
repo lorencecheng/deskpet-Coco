@@ -354,3 +354,133 @@ body {
   border-radius: 5px;
   transition: width 0.5s ease, background 0.5s ease;
 }
+
+/* ---- 问问 Coco：羁绊助理聊天面板（暖橘像素感，和整体皮肤一致） ---- */
+#assistPanel {
+  position: absolute;
+  left: 6px;
+  bottom: 6px;
+  z-index: 30;
+  width: 262px;
+  max-height: 440px;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(160deg, rgba(58, 42, 26, 0.97), rgba(38, 28, 18, 0.97));
+  border: 1px solid rgba(255, 190, 120, 0.45);
+  border-radius: 14px;
+  padding: 10px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(255, 200, 150, 0.08);
+  color: #fff3e6;
+}
+#assistPanel[hidden] { display: none; }
+.assist-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 7px;
+}
+.assist-title {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  background: linear-gradient(90deg, #ffd9a0, #ffb36b);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.assist-close {
+  border: none;
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffd9b0;
+  font-size: 12px;
+  line-height: 1;
+  border-radius: 6px;
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+}
+.assist-close:hover { background: rgba(255, 120, 80, 0.4); }
+.assist-badge {
+  font-size: 10.5px;
+  color: #ffe3bf;
+  background: rgba(255, 170, 90, 0.16);
+  border: 1px solid rgba(255, 190, 120, 0.3);
+  border-radius: 8px;
+  padding: 4px 8px;
+  margin-bottom: 7px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.assist-badge b { color: #ffd9a0; }
+.assist-log {
+  flex: 1;
+  min-height: 120px;
+  max-height: 240px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 4px 2px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 190, 120, 0.4) transparent;
+}
+.assist-msg {
+  max-width: 86%;
+  padding: 5px 9px;
+  border-radius: 11px;
+  font-size: 12px;
+  line-height: 1.5;
+  word-break: break-word;
+}
+.assist-msg.user {
+  align-self: flex-end;
+  background: linear-gradient(150deg, rgba(255, 165, 90, 0.9), rgba(240, 130, 60, 0.9));
+  color: #2a1a0e;
+  border-bottom-right-radius: 4px;
+}
+.assist-msg.coco {
+  align-self: flex-start;
+  background: rgba(255, 235, 205, 0.1);
+  border: 1px solid rgba(255, 200, 150, 0.25);
+  color: #fff3e6;
+  border-bottom-left-radius: 4px;
+}
+.assist-msg.coco.thinking { opacity: 0.65; font-style: italic; }
+.assist-input-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+.assist-input-row input {
+  flex: 1;
+  min-width: 0;
+  background: rgba(0, 0, 0, 0.3);
+  color: #fff3e6;
+  border: 1px solid rgba(255, 200, 150, 0.3);
+  border-radius: 9px;
+  padding: 6px 9px;
+  font-size: 12px;
+  outline: none;
+}
+.assist-input-row input:focus { border-color: rgba(255, 170, 90, 0.7); box-shadow: 0 0 0 2px rgba(255, 170, 90, 0.15); }
+.assist-input-row input::placeholder { color: rgba(255, 227, 191, 0.45); }
+.assist-input-row button {
+  border: none;
+  background: linear-gradient(150deg, #ff9a4d, #ff7a33);
+  color: #2a1a0e;
+  font-weight: 700;
+  font-size: 12px;
+  border-radius: 9px;
+  padding: 0 13px;
+  cursor: pointer;
+}
+.assist-input-row button:hover { filter: brightness(1.1); }
+.assist-input-row button:disabled { background: rgba(255, 170, 90, 0.4); cursor: default; }
+.assist-hint {
+  font-size: 9.5px;
+  color: rgba(255, 227, 191, 0.55);
+  margin-top: 6px;
+  text-align: center;
+}
+

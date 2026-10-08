@@ -40,6 +40,7 @@ An open-source, always-on-top **desktop pet** that lives on your computer screen
 - **🐾 Play: chase the light dot** — a glowing dot hops around your screen; Coco drops everything and sprints after it. Catch it and it bounces away. A fun, casual 10-second game.
 - **🎭 Random autonomous behavior** — even idle, Coco isn't just staring: it stretches, looks around, grooms, scratches, and acts on its mood — **happy** it rolls a yarn ball and bounces, **famished** it knocks over the bowl in a huff, **sleepy** it dozes off with a "ZZZ", **gloomy** it sulks. With AI on, the AI picks its own action + quip; with AI off, the built-in "sassy cat" engine runs — fully offline.
 - **💞 Bond system** — Coco starts out **aloof and wary**, and only grows into a **devoted companion** through time and care. Petting, playing, and feeding all raise the bond level, unlocking more interactions as it rises (low bond: belly is off-limits and it escapes after a stroke; at "best friend" it dares to flop belly-up in front of you and rubs against you after play). With AI on, Coco's tone adapts to how well it knows you.
+- **💬 Ask Coco (bonded assistant)** — right-click → "Ask Coco" opens a chat panel; the deeper your bond, the more capable it gets. As a stranger it only answers briefly; as a best friend it can **summarize text, plan todos, plan around your habits, save notes, and draft short messages** — always in Coco's lazy-sassy orange-cat voice, never a stiff bot.
 - **Fully customizable** — sprites live in `assets/sprites/<state>/frame-N.png`; swap images to restyle without touching code.
 
 ## 💞 Bond system (companionship-based raising)
@@ -57,6 +58,22 @@ Not a grind — a **companionship bond**: aloof at first, closer with every inte
 **How to raise it**: head tap / paw tap +3, a full petting session +8, finishing a dot-chase round +12, feeding fettuccine +5, playing/bathing also add (each interaction type has a 15 s cooldown to stop spam-farming).
 
 **No punishing, ever**: getting brushed off or a grumpy outburst never *loses* bond — it's just the cat being moody. Even if you stay away for 7 days, decay only starts then and is glacial (-2/day, never to zero); opening it once pauses decay. The right-click menu entry "💞 Bond system" can disable it anytime (no gain, no loss, all interactions stay open).
+
+## 💬 Ask Coco (the assistant gets more capable the deeper your bond)
+
+Right-click → "Ask Coco" opens a chat panel — just type. It's never a stiff assistant: it always stays **lazy, sassy and orange-cat**, and its abilities unlock with your bond:
+
+| Bond | What the assistant can do |
+|---|---|
+| Lv0 Stranger | Only brief answers and short questions; aloof |
+| Lv1 Getting to know you | + short memos, one-line encouragement / sarcastic copy |
+| Lv2 Familiar | + one-line summary of pasted text, simple todos (≤3) |
+| Lv3 Close | + responds using your habits, multi-step planning (≤5) |
+| Lv4 Best friend | + long-text distillation, save notes, draft short messages — sassiest and most reliable |
+
+- Requires **AI brain enabled** to actually speak (otherwise a bubble prompts you to enable it first). Offline it's just pet interaction, no assistant.
+- A badge on the panel header shows your current "assistant level + unlocked abilities" in real time.
+- A dedicated 20 s cooldown stops spam-farming tokens / local-model compute.
 
 ## 🧠 How do you know what Coco wants?
 

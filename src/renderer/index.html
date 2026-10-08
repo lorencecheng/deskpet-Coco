@@ -36,6 +36,7 @@
       <button data-action="sleep">😴 睡觉</button>
       <button data-action="skin">🎨 皮肤工坊</button>
       <button data-action="ai">🧠 AI 设置</button>
+      <button data-action="assist">💬 问问 Coco</button>
       <button data-action="bond">💞 羁绊系统</button>
       <button data-action="quit">🚪 退出</button>
     </div>
@@ -88,6 +89,20 @@
       <div class="skin-row"><button id="aiWizard" class="ai-wizard">✨ 免费开通（3 步，不花钱）</button></div>
       <div class="skin-row"><button id="aiLocal" class="ai-local">🤖 用本地模型（离线 · 免配置）</button></div>
       <div class="skin-hint">在线用通义/豆包等兼容接口填 Key；本地用 llama.cpp server 填 http://127.0.0.1:8080/v1。Key 只存本机。不懂配置？点上面「免费开通」或「用本地模型」，跟着走就行。</div>
+    </div>
+    <!-- 问问 Coco：羁绊越高越得力的小助理（聊天面板） -->
+    <div id="assistPanel" hidden>
+      <div class="assist-head">
+        <span class="assist-title">💬 问问 Coco</span>
+        <button id="assistClose" class="assist-close" aria-label="关闭">✕</button>
+      </div>
+      <div class="assist-badge" id="assistBadge"></div>
+      <div class="assist-log" id="assistLog"></div>
+      <div class="assist-input-row">
+        <input id="assistInput" type="text" placeholder="问 Coco 一句话…（比如帮我写个待办）" autocomplete="off" spellcheck="false">
+        <button id="assistSend">发</button>
+      </div>
+      <div class="assist-hint">羁绊越高，Coco 越得力。挚友解锁长文提炼、存笔记、帮你写短句。</div>
     </div>
   </div>
   <script src="bond.js"></script>

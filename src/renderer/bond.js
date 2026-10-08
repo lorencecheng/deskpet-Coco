@@ -98,11 +98,29 @@
   function setEnabled(v) { state.enabled = !!v; save(); }
   function isEnabled() { return state.enabled; }
 
+  // ---- 助理能力按羁绊等级解锁（羁绊越高越得力，人设仍是慵懒贱橘） ----
+  const ASSIST_ABILITIES = [
+    { lv: 0, label: '基础问答、短句提问' },
+    { lv: 1, label: '简短备忘、一句话文案' },
+    { lv: 2, label: '文字一句话总结、简单待办(≤3条)' },
+    { lv: 3, label: '结合你的习惯、多步小规划(≤5条)' },
+    { lv: 4, label: '长文提炼、存笔记、帮你写短句/消息' }
+  ];
+  // 返回当前羁绊等级已解锁的助理能力标签列表
+  function getAssistantPermission() {
+    const lv = levelInfo().lv;
+    return ASSIST_ABILITIES.filter((a) => a.lv <= lv).map((a) => a.label);
+  }
+  function assistantLevelInfo() {
+    const info = levelInfo();
+    return { lv: info.lv, name: info.name, abilities: getAssistantPermission() };
+  }
+
   // 脚本解析时即加载（读取上次进度 + 结算离线衰减）
   load();
 
   window.CocoBond = {
-    LEVELS, UPGRADE_MSG,
-    levelInfo, gain, setEnabled, isEnabled
+    LEVELS, UPGRADE_MSG, ASSIST_ABILITIES,
+    levelInfo, gain, setEnabled, isEnabled, getAssistantPermission, assistantLevelInfo
   };
 })();
