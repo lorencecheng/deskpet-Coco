@@ -48,7 +48,10 @@
   const COSTUMES = {
     pirate:    { name: '汪洋大盗', icon: '🏴‍☠️', states: ['idle', 'pose-cool', 'pose-badsmile', 'pose-heart', 'pose-dead'] },
     swordsman: { name: '剑客',     icon: '🗡️',   states: ['idle', 'pose-cool', 'pose-badsmile', 'pose-heart', 'pose-dead'] },
-    dress:     { name: '小裙子',   icon: '👗',   states: ['idle', 'pose-cool', 'pose-badsmile', 'pose-heart', 'pose-dead'] }
+    dress:     { name: '小裙子',   icon: '👗',   states: ['idle', 'pose-cool', 'pose-badsmile', 'pose-heart', 'pose-dead'] },
+    princess:  { name: '公主裙',   icon: '👑',   states: ['idle', 'pose-cool', 'pose-badsmile', 'pose-heart', 'pose-dead'] },
+    street:    { name: '潮牌',     icon: '🧢',   states: ['idle', 'pose-cool', 'pose-badsmile', 'pose-heart', 'pose-dead'] },
+    clown:     { name: '小丑',     icon: '🤡',   states: ['idle', 'pose-cool', 'pose-badsmile', 'pose-heart', 'pose-dead'] }
   };
   const COSTUME_COVER = Object.keys(COSTUMES).reduce((m, id) => {
     for (const s of COSTUMES[id].states) m[s] = true;
