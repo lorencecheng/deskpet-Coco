@@ -134,8 +134,9 @@
   let idleLoopTimer = null;
   const IDLE_ACTIONS = ['idle-blink', 'groom', 'yawn', 'scratch'];
   const IDLE_BUBBLES = {
-    groom: ['洗脸脸，做个干净小猫~ 🧼', '舔舔爪子，理理毛~', '洗香香，美美哒~'],
-    yawn:  ['哈——好困呀~ 🥱', '打个哈欠，眯一会儿~', '有点犯困了呢~']
+    groom:  ['洗脸脸，保持体面~ 🧼', '舔舔爪子理理毛，我可精致了~', '洗香香，本猫最优雅~'],
+    yawn:   ['哈——真困呀~ 🥱', '打个哈欠，眯一会儿~', '这日子好闲……先困一下~'],
+    scratch:['挠一挠，爽~', '嗯？哪里痒……啊舒服了~']
   };
   function scheduleIdleLoop() {
     clearTimeout(idleLoopTimer);
@@ -510,6 +511,13 @@
   const aiPanel = document.getElementById('aiPanel');
   document.getElementById('aiSave').addEventListener('click', () => { saveAiConfig(); closeAiPanel(); });
   document.getElementById('aiClose').addEventListener('click', closeAiPanel);
+  // 免费开通向导：普通用户零配置上手 AI（3 步）
+  document.getElementById('aiWizard').addEventListener('click', () => {
+    api.openExternal('https://bailian.console.aliyun.com/?tab=model');
+    showBubble('第1步：注册/登录通义千问，领免费额度（页面已打开）~', 6000);
+    setTimeout(() => showBubble('第2步：在「API-KEY」菜单点创建，复制那串 Key~', 6000), 6500);
+    setTimeout(() => showBubble('第3步：回到这里把 Key 粘进上面框，点「保存并启用」搞定！', 6000), 13000);
+  });
 
   function updateIndicator() {
     const low = Object.keys(NEED_DEFS).filter((k) => needs[k] < NEED_DEFS[k].threshold);
@@ -540,8 +548,10 @@
     panelTimer = setTimeout(() => { needsPanel.hidden = true; }, 5000);
   }
 
+  // ---- 本地性格引擎：不开 AI 也"活"的贱猫 ----
+  // 常规反应 + 需求偏低时的"看脸色"贱话，让普通用户零配置也能感到它有性格
   const REACT = {
-    feed:    ['宽面真好吃~ 谢谢你！', '吸溜~ 好香的一碗面！', '吃饱饱，超满足~'],
+    feed:    ['宽面真好吃~ 谢谢！', '吸溜~ 这碗面我记你一辈子~', '吃饱饱，懒得动了~'],
     bath:    ['泡泡浴好舒服~ 香香哒~', '洗白白啦，我最干净！', '咕噜咕噜，泡得好惬意~'],
     yarn:    ['毛线球最好玩啦！', '嘿嘿，看你往哪跑~', '玩得好开心呀！'],
     chase:   ['哈！被我追到啦~', '你跑不过我哒！', '追着光标好快乐~'],
@@ -551,6 +561,44 @@
     fishing: ['嘘……鱼要上钩啦！', '今天能钓到大鱼吗~', '垂钓的时光最悠闲~'],
     sleep:   ['晚安~ 做个好梦~', '呼……先睡一小会儿~', 'zzZ…… 别吵我哦~']
   };
+  // 某一项需求很低时，猫会"看脸色"地吐槽（key=需求名，再按互动细分）
+  const REACT_NEEDY = {
+    hunger: {
+      feed:    ['你终于想起我啦！再来十碗！', '饿到腿软，这碗面救了我~', '早该喂我了，哼~'],
+      drink:   ['咖啡不解饿！我要的是宽面！'],
+      fishing: ['鱼半天不上钩，我都快饿晕了……']
+    },
+    clean: {
+      bath: ['身上都馊了，还好你给我洗香香~', '泡泡浴，爽到眯眼~'],
+      feed: ['先让我洗个澡啦，脏着怎么吃面！'],
+      sleep: ['别让我脏着睡……先洗澡嘛~']
+    },
+    energy: {
+      sleep: ['累死了……终于能睡了~', '别吵我，让我瘫一会~'],
+      yarn:  ['玩不动啦……让我歇会吧~'],
+      chase: ['跑不动了，你自己玩吧……'],
+      happy: ['好累……摸摸就够了~']
+    },
+    mood: {
+      happy: ['心情好一点点了……', '陪陪我，我就开心了~'],
+      feed:  ['喂饱我心情就好了~', '吃得饱才笑得出来嘛~'],
+      yarn:  ['陪我玩，我就高兴了~']
+    }
+  };
+  function pickReaction(name) {
+    let needy = null;
+    for (const k of Object.keys(NEED_DEFS)) {
+      if (needs[k] < NEED_DEFS[k].threshold) {
+        if (needy === null || needs[k] < needs[needy]) needy = k;
+      }
+    }
+    if (needy && REACT_NEEDY[needy] && REACT_NEEDY[needy][name]) {
+      const arr = REACT_NEEDY[needy][name];
+      return arr[Math.floor(Math.random() * arr.length)];
+    }
+    const arr = REACT[name] || ['喵~'];
+    return arr[Math.floor(Math.random() * arr.length)];
+  }
 
   // ===================== AI 大脑（可选，慵懒贱猫） =====================
   // 关闭 AI 时完全离线：所有行为走本地性格池；开启后 AI 生成 {action,text}，
@@ -615,10 +663,7 @@
     const evtMap = { feed: '你喂了我意大利宽面', bath: '你帮我洗澡', yarn: '你陪我玩毛线球', chase: '我追着你的光标跑', happy: '你摸了我一下', drink: '你请我喝咖啡', scratch: '你帮我抓痒', fishing: '我在钓鱼', sleep: '我要睡觉了' };
     const evt = evtMap[name] || name;
     maybeAiLine(evt, { doAction: true }).then((usedAi) => {
-      if (!usedAi) {
-        const reacts = REACT[name];
-        if (reacts) showBubble(reacts[Math.floor(Math.random() * reacts.length)], 4200);
-      }
+      if (!usedAi) showBubble(pickReaction(name), 4200);
     });
     updateIndicator();
     updatePanel();

@@ -659,6 +659,10 @@ function registerIpc() {
     if (text === null) return { ok: false, text: '' };
     return { ok: true, text };
   });
+  // 用系统默认浏览器打开外部链接（仅限 http/https，用于"免费开通"向导跳转）
+  ipcMain.on('pet:open-external', (_e, url) => {
+    if (typeof url === 'string' && /^https?:\/\//i.test(url)) shell.openExternal(url);
+  });
 
   // 拖动宠物：用光标位置增量移动窗口
   ipcMain.on('pet:drag-start', () => {

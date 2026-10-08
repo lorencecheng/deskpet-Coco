@@ -76,5 +76,7 @@ contextBridge.exposeInMainWorld('coco', {
   /** 保存 AI 配置 */
   aiSaveConfig(cfg) { ipcRenderer.send('ai:save-config', cfg); },
   /** 发一次对话，返回 { ok, text }；主进程失败/禁用时 ok=false */
-  aiChat(messages) { return ipcRenderer.invoke('ai:chat', messages); }
+  aiChat(messages) { return ipcRenderer.invoke('ai:chat', messages); },
+  /** 用系统默认浏览器打开外部链接（仅 http/https） */
+  openExternal(url) { ipcRenderer.send('pet:open-external', url); }
 });

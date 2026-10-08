@@ -253,6 +253,13 @@ body {
   font-family: inherit;
 }
 .ai-toggle { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #fff3e6; cursor: pointer; }
+.skin-row button.ai-wizard {
+  flex: 1;
+  border: 1px solid rgba(120, 220, 160, 0.6);
+  background: rgba(90, 200, 140, 0.25);
+  color: #eafff3;
+}
+.skin-row button.ai-wizard:hover { background: rgba(90, 200, 140, 0.45); }
 #skinClose {
   width: 100%;
   border: none;

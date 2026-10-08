@@ -136,6 +136,8 @@ Open the palette panel via **🎨 Skin Workshop** in the right-click menu. Resty
 
 Right-click the pet → **🧠 AI Settings** to enable it. **Off by default and fully offline**; once enabled, Coco uses a language model to pick its own action and say its own line — lazier, sassier, more character.
 
+> **Don't want to configure anything? No problem.** With AI off, Coco ships with a built-in "reads your mood" sassy local personality: it reacts differently when hungry / dirty / tired / bored (e.g. feed coffee while starving and it quips "Coffee doesn't fix hunger! I want noodles!") — alive out of the box. To get the real AI, tap **✨ Free setup (3 steps)** in AI Settings to grab a free key and paste it in — no tech knowledge needed.
+
 - **When it triggers** (not constantly online): petting / double-click / feeding / bathing etc., plus occasional idle self-talk.
 - **Self-decides**: the AI returns `{"action":"...","text":"..."}`; Coco parses it and **chooses its own action** (wash / yawn / pretend to sleep / stare / sass…) plus a one-line bubble. It only acts while idle — never interrupts roaming or cursor-chasing.
 - **Two backends** (switch in the panel):
