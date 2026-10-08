@@ -232,11 +232,15 @@ body {
   flex-direction: column;
   gap: 1px;
   min-width: 168px;
+  max-height: 300px;   /* 选项很多时可滚动，保证"右键全部显示"不因高度被截断 */
+  overflow-y: auto;
   background: var(--panel-grad);
   border: 1px solid var(--panel-line);
   border-radius: var(--r-md);
   padding: 5px;
   box-shadow: var(--shadow);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 190, 120, 0.4) transparent;
 }
 #menu[hidden] { display: none; }
 .menu-title {
@@ -395,8 +399,12 @@ body {
   border-radius: 14px;
   padding: 6px 12px;
   font-size: 12px;
+  line-height: 1.45;
   color: #6b4a2a;
-  white-space: nowrap;
+  max-width: 94%;       /* 长提醒（天气/久坐）可换行，避免超出窗口被裁掉 */
+  white-space: normal;
+  text-align: center;
+  word-break: break-word;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.25s ease, transform 0.25s ease;

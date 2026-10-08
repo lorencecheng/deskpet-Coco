@@ -47,9 +47,17 @@
     onAction() { return () => {}; },
     triggerAction() {},
     dragStart() {}, dragMove() {}, dragEnd() {},
-    chase() {}, onChaseDone() { return () => {}; },
+    chase() {}, stopChase() {}, onChaseDone() { return () => {}; },
+    dotChase() {}, onDotChaseDone() { return () => {}; },
     walk() {}, quit() {}, onWalkDir() { return () => {}; },
-    menuResize() {}
+    menuResize() {}, panelResize() {},
+    getPathForFile() { return ''; }, eatFile() {}, onEatResult() { return () => {}; },
+    onRemind() { return () => {}; },
+    clipboardWrite() {}, clipboardRead() { return ''; }, readSprite() { return null; },
+    checkWeather() {}, aiGetConfig() { return Promise.resolve(null); },
+    aiSaveConfig() {}, aiChat() { return Promise.resolve({ ok: false, text: '' }); },
+    openExternal() {}, aiLocalStatus() { return Promise.resolve(null); },
+    aiLocalStart() { return Promise.resolve({ ok: false }); }
   };
 
   // ---- 精灵帧加载与缓存 ----
@@ -571,8 +579,7 @@
   });
   // 本地模型一键启用（离线 · 免配置）：自动启动 + 切到 local 后端
   document.getElementById('aiLocal').addEventListener('click', () => {
-    api.aiLocalStatus().then((st) => {
-      if (st && st.hasModel) {
+    api.aiLocalStatus().then((st) => {      if (st && st.hasModel) {
         showBubble('正在启动本地模型（首次稍慢）……', 3000);
         api.aiLocalStart().then((r) => {
           if (r && r.ok) {
@@ -582,12 +589,12 @@
           } else {
             showBubble('本地模型启动失败（可能是 CPU 太慢或缺少依赖），先用免费开通试在线版吧~', 5000);
           }
-        });
+        }).catch(() => { showBubble('本地模型启动失败（可能是 CPU 太慢或缺少依赖），先用免费开通试在线版吧~', 5000); });
       } else {
         showBubble('还没装本地模型。点我会打开下载教程：装好一次，以后永久免配置离线用~', 5000);
         api.openExternal('https://github.com/lorencecheng/deskpet-Coco/blob/main/scripts/README.local-ai.md');
       }
-    });
+    }).catch(() => { showBubble('本地模型状态查不到……可能是主进程还在启动，稍后再试~', 4000); });
   });
 
   // ---- 问问 Coco：羁绊越高越得力的小助理（聊天面板） ----
@@ -689,6 +696,10 @@
       if (res && res.ok && res.text) reply = res.text.trim();
       appendAssist('coco', reply);
       pushAssist('coco', reply);
+      assistSend.disabled = false;
+    }).catch(() => {
+      think.remove();
+      appendAssist('coco', '哎，脑子短路了……可能是网络或模型问题，稍后再试~');
       assistSend.disabled = false;
     });
   }
@@ -925,7 +936,8 @@
     const now = Date.now();
     if (now - lastAiAt < (aiConfig.cooldownMs || 15000)) return false;
     lastAiAt = now;
-    const res = await api.aiChat(buildAiMessages(eventText, opts.userMsg));
+    let res = null;
+    try { res = await api.aiChat(buildAiMessages(eventText, opts.userMsg)); } catch { return false; }
     if (!res || !res.ok || !res.text) return false;
     const p = parseAiJson(res.text);
     if (!p) return false;
@@ -1000,9 +1012,11 @@
     chaseActive = true;
     setState('chase'); // 复用走路精灵 + 更快帧率 + 弹跳跑动感，去追光标
     api.chase();       // 主进程开启持续追踪：鼠标移到哪，猫跑着追到哪
-    // 兜底：主进程迟迟未回报完成时（异常情况）回到待机
+    // 兜底：主进程迟迟未回报完成时（异常情况）回到待机，并通知主进程停止追踪，避免动画与窗口脱节
     clearTimeout(chaseTimeout);
-    chaseTimeout = setTimeout(() => { if (chaseActive) { chaseActive = false; setState('idle'); } }, 15000);
+    chaseTimeout = setTimeout(() => {
+      if (chaseActive) { chaseActive = false; api.stopChase(); setState('idle'); }
+    }, 15000);
   }
 
   // 逗猫小游戏：追光点（复用 chase 跑动动画，但不触发追光标，避免冲突）
@@ -1313,6 +1327,6 @@
   tickNeeds();
   restoreSkin(); // 恢复上次保存的皮肤配色
   if (skinScheme.active) applySkin(skinScheme);
-  api.aiGetConfig().then((cfg) => { if (cfg && typeof cfg === 'object') aiConfig = cfg; }); // 恢复 AI 配置
+  api.aiGetConfig().then((cfg) => { if (cfg && typeof cfg === 'object') aiConfig = cfg; }).catch(() => {}); // 恢复 AI 配置
   setTimeout(() => showBubble('喵~ 我是咖啡猫 Coco，也是你的桌面小助理：把文件拖到我身上我会帮你放进回收站；坐久了、天气有变我也会提醒你~'), 2500);
 })();

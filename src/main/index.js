@@ -886,6 +886,8 @@ function registerIpc() {
     chaseTick();
     chaseTimer = setInterval(chaseTick, 33);
   });
+  // 渲染端兜底超时后主动停止追踪（避免动画与窗口脱节）
+  ipcMain.on('pet:chase-stop', () => stopChase());
 
   function chaseTick() {
     if (!chasing || !win || win.isDestroyed()) { stopChase(); return; }

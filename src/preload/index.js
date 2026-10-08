@@ -20,6 +20,8 @@ contextBridge.exposeInMainWorld('coco', {
   dragEnd() { ipcRenderer.send('pet:drag-end'); },
   /** 追光标：让主进程把窗口朝光标位置扑跳 */
   chase() { ipcRenderer.send('pet:chase'); },
+  /** 追光标：渲染端兜底超时后主动让主进程停止追踪，避免动画与窗口脱节 */
+  stopChase() { ipcRenderer.send('pet:chase-stop'); },
   onChaseDone(callback) {
     const listener = () => callback();
     ipcRenderer.on('pet:chase-done', listener);
