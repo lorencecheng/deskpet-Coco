@@ -36,6 +36,7 @@ An open-source, always-on-top **desktop pet** that lives on your computer screen
 - **🎨 Skin Workshop** — restyle without drawing: pick a preset (orange / black / white / cream / gray / tabby-brown / calico — all real, existing cat colors) or pick a custom **fur** color. The pixel art, limbs, pink blush, and props (bowl / noodles / coffee mug) always stay intact. Copy a **color code** and send it to a friend — they paste it and get the exact same cat (social cat-sharing!).
 - **🧠 AI brain (optional)** — plug in a lightweight, free model and Coco really "thinks": based on your interactions and its current mood/hunger it picks its own action and quips a line. Off by default and fully offline; only when enabled does it go online, and on any failure it falls back to local lines. Supports **local llama.cpp** or any **OpenAI-compatible API** (Qwen / Doubao etc.).
 - **🖐 Part-based petting** — tap Coco's **head** to make it purr, its **belly** to make it roll away, its **paw** to make it playfully bite — different spots, different reactions.
+- **🤲 Long-press petting** — press and hold to start petting: it purrs contentedly, but pet too long and it gets grumpy and rolls away (mood rises then falls, just like a real cat).
 - **🐾 Play: chase the light dot** — a glowing dot hops around your screen; Coco drops everything and sprints after it. Catch it and it bounces away. A fun, casual 10-second game.
 - **Fully customizable** — sprites live in `assets/sprites/<state>/frame-N.png`; swap images to restyle without touching code.
 

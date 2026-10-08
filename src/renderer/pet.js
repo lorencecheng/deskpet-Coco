@@ -761,24 +761,73 @@
   }
 
   // ---- 点击 / 拖动 ----
-  let ptr = { down: false, startX: 0, startY: 0, moved: false, dragging: false, startT: 0 };
+  let ptr = { down: false, startX: 0, startY: 0, moved: false, dragging: false, startT: 0, longHold: false, longTimer: null, pettingStart: 0, pettingMoves: 0, annoyed: false, petTimeout: null };
+
+  // ---- 长按抚摸：按住猫停一下开始抚摸（舒服眯眼），摸太久会不耐烦躲开 ----
+  function startPetting() {
+    if (currentState === 'sleep') setState('idle');
+    needs.mood = Math.min(100, needs.mood + 6);
+    updateIndicator(); updatePanel(); saveNeeds();
+    setState('happy');
+    showBubble('呼噜呼噜~ 好舒服~ 🐾', 2600);
+    ptr.pettingStart = Date.now();
+    ptr.pettingMoves = 0;
+    ptr.annoyed = false;
+    clearTimeout(ptr.petTimeout);
+    // 最多摸约 5 秒，太久就烦
+    ptr.petTimeout = setTimeout(() => { if (ptr.down && ptr.longHold && !ptr.annoyed) annoyPetting(); }, 5000);
+  }
+  function pettingMove() {
+    ptr.pettingMoves += 1;
+    if (ptr.annoyed) return;
+    if (Date.now() - ptr.pettingStart > 2600) { annoyPetting(); return; }
+    if (ptr.pettingMoves % 10 === 0) { // 抚摸中偶尔更舒服一点（节流）
+      needs.mood = Math.min(100, needs.mood + 1);
+      updateIndicator(); updatePanel(); saveNeeds();
+      showBubble(['呼噜呼噜~', '好舒服呀~', '喵，别停~'][Math.floor(Math.random() * 3)], 1800);
+    }
+  }
+  function annoyPetting() {
+    ptr.annoyed = true;
+    needs.mood = Math.max(0, needs.mood - 10);
+    updateIndicator(); updatePanel(); saveNeeds();
+    showBubble('摸够了，别蹭了~ 😾', 2600);
+    setState('drop'); // 扭头躲开
+  }
+  function endPetting() {
+    clearTimeout(ptr.petTimeout);
+    if (ptr.annoyed) {
+      setTimeout(() => { if (currentState === 'drop') setState('idle'); }, 900);
+    } else {
+      needs.mood = Math.min(100, needs.mood + 4);
+      updateIndicator(); updatePanel(); saveNeeds();
+      showBubble('呼~ 摸得我有点满足了~', 2400);
+      setState('idle');
+    }
+  }
 
   petImg.addEventListener('pointerdown', (e) => {
     // 右键：交给 contextmenu 统一弹出，避免与 contextmenu 重复 toggle 导致菜单一闪而过
     if (e.button === 2) { ptr.rightDown = true; return; }
     ptr.rightDown = false;
-    ptr = { down: true, startX: e.screenX, startY: e.screenY, moved: false, dragging: false, startT: Date.now() };
+    ptr = { down: true, startX: e.screenX, startY: e.screenY, moved: false, dragging: false, startT: Date.now(), longHold: false, longTimer: null, pettingStart: 0, pettingMoves: 0, annoyed: false, petTimeout: null };
     try { petImg.setPointerCapture(e.pointerId); } catch (err) {}
     hideMenu();
+    // 长按检测：按住 450ms 还没拖动 → 进入抚摸模式（区别于拖拽移动窗口）
+    ptr.longTimer = setTimeout(() => {
+      if (ptr.down && !ptr.moved && !ptr.dragging && !ptr.longHold) { ptr.longHold = true; startPetting(); }
+    }, 450);
   });
 
   petImg.addEventListener('pointermove', (e) => {
     if (!ptr.down) return;
+    if (ptr.longHold) { pettingMove(e); return; } // 抚摸中锁定窗口，不移动
     const dx = e.screenX - ptr.startX;
     const dy = e.screenY - ptr.startY;
     if (!ptr.moved && Math.hypot(dx, dy) > 6) {
       ptr.moved = true;
       ptr.dragging = true;
+      clearTimeout(ptr.longTimer);
       api.dragStart();
       setState('drag');
     }
@@ -789,11 +838,16 @@
     // 右键抬起：保留刚弹出的菜单，不让它立刻关闭
     if (ptr.rightDown) { ptr.rightDown = false; return; }
     if (!ptr.down) return;
+    clearTimeout(ptr.longTimer);
     const wasDragging = ptr.dragging;
-    const wasQuick = !wasDragging && (Date.now() - ptr.startT) < 320;
+    const wasPetting = ptr.longHold;
+    const wasQuick = !wasDragging && !wasPetting && (Date.now() - ptr.startT) < 320;
     ptr.down = false;
     ptr.dragging = false;
-    if (wasDragging) {
+    ptr.longHold = false;
+    if (wasPetting) {
+      endPetting();
+    } else if (wasDragging) {
       api.dragEnd();
       applyInteraction('happy');
       setState('drop');
