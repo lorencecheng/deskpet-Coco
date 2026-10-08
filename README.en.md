@@ -39,7 +39,24 @@ An open-source, always-on-top **desktop pet** that lives on your computer screen
 - **🤲 Long-press petting** — press and hold to start petting: it purrs contentedly, but pet too long and it gets grumpy and rolls away (mood rises then falls, just like a real cat).
 - **🐾 Play: chase the light dot** — a glowing dot hops around your screen; Coco drops everything and sprints after it. Catch it and it bounces away. A fun, casual 10-second game.
 - **🎭 Random autonomous behavior** — even idle, Coco isn't just staring: it stretches, looks around, grooms, scratches, and acts on its mood — **happy** it rolls a yarn ball and bounces, **famished** it knocks over the bowl in a huff, **sleepy** it dozes off with a "ZZZ", **gloomy** it sulks. With AI on, the AI picks its own action + quip; with AI off, the built-in "sassy cat" engine runs — fully offline.
+- **💞 Bond system** — Coco starts out **aloof and wary**, and only grows into a **devoted companion** through time and care. Petting, playing, and feeding all raise the bond level, unlocking more interactions as it rises (low bond: belly is off-limits and it escapes after a stroke; at "best friend" it dares to flop belly-up in front of you and rubs against you after play). With AI on, Coco's tone adapts to how well it knows you.
 - **Fully customizable** — sprites live in `assets/sprites/<state>/frame-N.png`; swap images to restyle without touching code.
+
+## 💞 Bond system (companionship-based raising)
+
+Not a grind — a **companionship bond**: aloof at first, closer with every interaction.
+
+| Level | Name | What Coco does |
+|---|---|---|
+| Lv0 | Stranger (just adopted) | Wary, won't let you touch its belly, breaks free the moment you pet it |
+| Lv1 | Getting to know you | Tolerates a little petting but soon pulls away; belly still mostly off-limits |
+| Lv2 | Familiar | All spots petable; occasionally wanders over to say hi |
+| Lv3 | Close | Lets you pet it comfortably for longer; rubs against you after the dot-chase game |
+| Lv4 | Best friend | Dares to flop belly-up in front of you, clingier and sassier; AI tone loosens up |
+
+**How to raise it**: head tap / paw tap +3, a full petting session +8, finishing a dot-chase round +12, feeding fettuccine +5, playing/bathing also add (each interaction type has a 15 s cooldown to stop spam-farming).
+
+**No punishing, ever**: getting brushed off or a grumpy outburst never *loses* bond — it's just the cat being moody. Even if you stay away for 7 days, decay only starts then and is glacial (-2/day, never to zero); opening it once pauses decay. The right-click menu entry "💞 Bond system" can disable it anytime (no gain, no loss, all interactions stay open).
 
 ## 🧠 How do you know what Coco wants?
 

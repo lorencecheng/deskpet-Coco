@@ -143,10 +143,12 @@
     { id: 'bounce',     state: 'happy',      w: 1, mood: [60, 100], bubble: ['（开心蹦跶两下）喵~！', '心情好，蹦起来~'] },
     { id: 'knockbowl',  state: 'drop',       w: 0, mood: [0, 100], bubble: ['啪！我把碗掀了！（饿了）', '碗里空空，气死我了~', '面条呢？！我掀桌！'] },
     { id: 'doze',       state: 'sleep',      w: 0, mood: [0, 100], bubble: ['眼皮好重……先瘫一下~ 😴', 'ZZZ……（困了先眯一会儿）'], doze: true },
-    { id: 'sulk',       state: 'drop',       w: 1, mood: [0, 35],  bubble: ['哼，没人理我……', '别烦我，我正闹脾气呢~'] }
+    { id: 'sulk',       state: 'drop',       w: 1, mood: [0, 35],  bubble: ['哼，没人理我……', '别烦我，我正闹脾气呢~'] },
+    { id: 'bellyshow',  state: 'drop',       w: 0, mood: [0, 100], bubble: ['（在你面前躺平露肚皮~）', '信任你到敢翻肚皮啦~'] }
   ];
   function randOf(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
   function pickAutoBehavior() {
+    const lv = bondLv();
     const entries = AUTO_BEHAVIORS.map((b) => {
       let w = b.w;
       // 需求驱动的"个性"加权：很饿想掀碗、很困想打盹、心情差闹脾气
@@ -154,6 +156,7 @@
       if (b.id === 'doze' && needs.energy < 30) w += 5;
       if (b.id === 'sulk' && needs.mood < 35) w += 3;
       if ((b.id === 'play' || b.id === 'bounce') && needs.mood < 60) w = 0; // 心情不好不爱玩
+      if (b.id === 'bellyshow' && lv >= 4) w += 5; // 只有羁绊挚友才敢当着你翻肚皮
       return { b, w };
     }).filter((x) => x.w > 0);
     if (!entries.length) return null;
@@ -203,6 +206,14 @@
         if (needs.hunger < NEED_DEFS.hunger.threshold && Math.random() < 0.5) {
           const begs = NEED_DEFS.hunger.hints;
           showBubble(`🍝 ${begs[Math.floor(Math.random() * begs.length)]} 丢个文件给我吃掉吧~`, 4200);
+        }
+        // 羁绊越深越黏人：熟悉后偶尔凑近你说句话（低概率，不打扰）
+        const lv = bondLv();
+        if (lv >= 2 && Math.random() < (lv >= 4 ? 0.22 : 0.13)) {
+          const near = lv >= 4
+            ? ['（凑到你光标边趴下，陪你~）', '喵~ 你在就好。', '（蹭蹭屏幕）别太累哦。']
+            : ['（在你附近悠闲晃悠）', '喵~ 今天也陪你~', '（朝你那边看了看）'];
+          showBubble(randOf(near), 3200);
         }
       }
       scheduleIdleLoop();
@@ -579,6 +590,26 @@
     });
   });
 
+  // ---- 羁绊系统（bond.js）：陪伴式养成，刚领养高冷 → 越相处越亲近 ----
+  const bond = window.CocoBond;
+  function bondLv() {
+    if (!bond || !bond.isEnabled()) return 4; // 关闭羁绊 = 全部交互开放，不设门槛
+    return bond.levelInfo().lv;
+  }
+  function addBond(key, amount) {
+    if (!bond || !bond.isEnabled()) return;
+    const r = bond.gain(key, amount);
+    if (r.leveled) {
+      const info = bond.levelInfo();
+      showBubble(`💞 羁绊升级：${info.name}！${bond.UPGRADE_MSG[info.lv] || ''}`, 4600);
+      updateIndicator(); updatePanel();
+    }
+  }
+  function bondBarColor(lv) {
+    const cols = ['#9aa0a6', '#aacf7a', '#f5c24a', '#ff9d4d', '#f2706e'];
+    return cols[lv] || cols[0];
+  }
+
   function updateIndicator() {
     const low = Object.keys(NEED_DEFS).filter((k) => needs[k] < NEED_DEFS[k].threshold);
     indicator.textContent = low.map((k) => NEED_DEFS[k].icon).join('');
@@ -597,6 +628,15 @@
       if (!fill) continue;
       fill.style.width = `${needs[k]}%`;
       fill.style.background = barColor(needs[k]);
+    }
+    // 羁绊进度条 + 等级名
+    const bFill = document.getElementById('need-bond');
+    const bLv = document.getElementById('bondLevel');
+    if (bFill && bond) {
+      const info = bond.isEnabled() ? bond.levelInfo() : { name: '开放', progress: 1, lv: 4, next: null };
+      bFill.style.width = `${Math.round(info.progress * 100)}%`;
+      bFill.style.background = bondBarColor(info.lv);
+      if (bLv) bLv.textContent = `羁绊 ${info.name}`;
     }
   }
   let panelTimer = null;
@@ -683,6 +723,11 @@
   function buildAiMessages(eventText, userMsg) {
     const needsText = Object.keys(NEED_DEFS).map((k) => `${NEED_DEFS[k].label}:${Math.round(needs[k])}%`).join('，');
     let user = `当前状态：${needsText}。最近事件：${eventText}。`;
+    // 把羁绊等级喂给 AI，让它按"熟不熟"调口吻：陌生就冷淡，挚友才敢嘴欠撒娇
+    if (bond && bond.isEnabled()) {
+      const b = bond.levelInfo();
+      user += `你和主人的羁绊等级：${b.name}（Lv${b.lv}）。`;
+    }
     if (userMsg) user += `用户说：${userMsg}。`;
     user += ' 请只输出一个JSON，形如 {"action":"blink|wash|yawn|stretch|ignore|stare|sleep|tease|play|knock|sulk","text":"一句话气泡，15字内"}，不要任何多余文字、解释或markdown。';
     return [
@@ -720,6 +765,10 @@
       case 'fishing': needs.mood = Math.min(100, needs.mood + 15); needs.hunger = Math.min(100, needs.hunger + 5); break;
       case 'sleep':   break; // 精力由睡觉期间的 tick 持续恢复
     }
+    // 羁绊上涨：投喂/陪玩/洗澡这些"用心照顾"都会拉近感情（喂最见效）
+    if (name === 'feed') addBond('feed', 5);
+    if (name === 'yarn' || name === 'chase') addBond('play', 3);
+    if (name === 'bath') addBond('bath', 2);
     // AI 开启时优先用 AI 的贱猫台词，失败再回落本地固定文案
     const evtMap = { feed: '你喂了我意大利宽面', bath: '你帮我洗澡', yarn: '你陪我玩毛线球', chase: '我追着你的光标跑', happy: '你摸了我一下', drink: '你请我喝咖啡', scratch: '你帮我抓痒', fishing: '我在钓鱼', sleep: '我要睡觉了' };
     const evt = evtMap[name] || name;
@@ -790,6 +839,14 @@
     if (name === 'quit') { api.quit(); return; }
     if (name === 'skin') { openSkinPanel(); return; }
     if (name === 'ai') { openAiPanel(); return; }
+    if (name === 'bond') {
+      if (!bond) return;
+      const on = !bond.isEnabled();
+      bond.setEnabled(on);
+      showBubble(on ? '💞 羁绊系统已开启——我们从陌生慢慢处起~' : '💞 羁绊系统已关闭（不涨也不掉，想养随时回来）', 3600);
+      updatePanel();
+      return;
+    }
     if (name === 'weather') { showBubble('喵？让我看看今天的天气~ ☁️', 2000); api.checkWeather(); return; }
     // walk 由主进程驱动；这里只切换走路动画，避免与主进程双向触发形成循环
     if (name === 'walk') { setState('walk'); return; }
@@ -807,6 +864,13 @@
   // ---- 长按抚摸：按住猫停一下开始抚摸（舒服眯眼），摸太久会不耐烦躲开 ----
   function startPetting() {
     if (currentState === 'sleep') setState('idle');
+    // 羁绊 Lv0 高冷期：一摸就挣脱，不让好好摸
+    if (bondLv() === 0) {
+      ptr.pettingStart = Date.now(); ptr.pettingMoves = 0; ptr.annoyed = true;
+      showBubble('别碰，离我远点~', 2200);
+      setState('drop');
+      return;
+    }
     needs.mood = Math.min(100, needs.mood + 6);
     updateIndicator(); updatePanel(); saveNeeds();
     setState('happy');
@@ -821,7 +885,9 @@
   function pettingMove() {
     ptr.pettingMoves += 1;
     if (ptr.annoyed) return;
-    if (Date.now() - ptr.pettingStart > 2600) { annoyPetting(); return; }
+    // 忍耐度随羁绊：Lv1 很快就不耐烦，Lv3+ 更能被你摸舒服（更久才烦）
+    const annoyAt = bondLv() <= 1 ? 1600 : (bondLv() >= 3 ? 3200 : 2600);
+    if (Date.now() - ptr.pettingStart > annoyAt) { annoyPetting(); return; }
     if (ptr.pettingMoves % 10 === 0) { // 抚摸中偶尔更舒服一点（节流）
       needs.mood = Math.min(100, needs.mood + 1);
       updateIndicator(); updatePanel(); saveNeeds();
@@ -842,6 +908,7 @@
     } else {
       needs.mood = Math.min(100, needs.mood + 4);
       updateIndicator(); updatePanel(); saveNeeds();
+      addBond('petting', 8); // 完整摸完一轮 → 羁绊上涨
       showBubble('呼~ 摸得我有点满足了~', 2400);
       setState('idle');
     }
@@ -922,8 +989,18 @@
     if (currentState === 'sleep') { setState('idle'); applyInteraction('happy'); setState('happy'); return; }
     const zone = clickZone(px, py);
     if (zone === 'head' || zone === 'paw' || zone === 'belly') {
+      const lv = bondLv();
+      // 羁绊低时很警惕：Lv0 完全不让摸肚子，Lv1 也有概率躲开（真正的高冷期）
+      if (zone === 'belly' && lv <= 1 && Math.random() < (lv === 0 ? 1 : 0.4)) {
+        needs.mood = Math.max(0, needs.mood - 2);
+        updateIndicator(); updatePanel(); saveNeeds();
+        showBubble(lv === 0 ? '别碰，离我远点。' : '肚子先不给摸！', 2400);
+        setState('drop');
+        return;
+      }
       needs.mood = Math.min(100, needs.mood + 12);
       updateIndicator(); updatePanel(); saveNeeds();
+      addBond('pet', 3);
       const zoneName = zone === 'head' ? '脑袋' : (zone === 'paw' ? '爪子' : '肚子');
       maybeAiLine(`你点了我的${zoneName}`).then((used) => {
         if (!used) showBubble(ZONE_REACT[zone][Math.floor(Math.random() * ZONE_REACT[zone].length)], 3600);
@@ -989,7 +1066,9 @@
   api.onDotChaseDone(() => {
     if (dotChaseActive) {
       dotChaseActive = false;
+      addBond('dotchase', 12); // 玩完一局 → 羁绊上涨
       setState('happy');
+      if (bondLv() >= 3) showBubble('（追得好开心，蹭蹭你~）', 2600); // 亲近后玩完会主动蹭
       setTimeout(() => { if (currentState === 'happy') setState('idle'); }, 1600);
     }
   });

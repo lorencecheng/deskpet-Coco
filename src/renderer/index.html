@@ -11,12 +11,13 @@
     <img id="petImg" draggable="false" alt="咖啡猫">
     <div id="bubble"></div>
     <div id="indicator"></div>
-    <!-- 状态面板（默认隐藏）：饱食 / 清洁 / 精力 / 心情 -->
+    <!-- 状态面板（默认隐藏）：饱食 / 清洁 / 精力 / 心情 / 羁绊 -->
     <div id="needsPanel" hidden>
       <div class="need-row"><span>🍝 饱食</span><div class="bar"><i id="need-hunger"></i></div></div>
       <div class="need-row"><span>🛁 清洁</span><div class="bar"><i id="need-clean"></i></div></div>
       <div class="need-row"><span>😴 精力</span><div class="bar"><i id="need-energy"></i></div></div>
       <div class="need-row"><span>🎈 心情</span><div class="bar"><i id="need-mood"></i></div></div>
+      <div class="need-row bond-row"><span>💞 <b id="bondLevel">羁绊</b></span><div class="bar"><i id="need-bond"></i></div></div>
     </div>
     <!-- 右键动作菜单（默认隐藏） -->
     <div id="menu" hidden>
@@ -35,6 +36,7 @@
       <button data-action="sleep">😴 睡觉</button>
       <button data-action="skin">🎨 皮肤工坊</button>
       <button data-action="ai">🧠 AI 设置</button>
+      <button data-action="bond">💞 羁绊系统</button>
       <button data-action="quit">🚪 退出</button>
     </div>
     <!-- 皮肤工坊面板（默认隐藏） -->
@@ -88,6 +90,7 @@
       <div class="skin-hint">在线用通义/豆包等兼容接口填 Key；本地用 llama.cpp server 填 http://127.0.0.1:8080/v1。Key 只存本机。不懂配置？点上面「免费开通」或「用本地模型」，跟着走就行。</div>
     </div>
   </div>
+  <script src="bond.js"></script>
   <script src="pet.js"></script>
 </body>
 </html>
