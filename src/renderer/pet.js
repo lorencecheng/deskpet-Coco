@@ -47,7 +47,8 @@
   // 服装的非橘色像素（面罩/佩剑/裙子等）天然被皮肤换色保护，不会误染。
   const COSTUMES = {
     pirate:    { name: '汪洋大盗', icon: '🏴‍☠️', states: ['idle', 'pose-cool', 'pose-badsmile', 'pose-heart', 'pose-dead'] },
-    swordsman: { name: '剑客',     icon: '🗡️',   states: ['idle'] }
+    swordsman: { name: '剑客',     icon: '🗡️',   states: ['idle', 'pose-cool', 'pose-badsmile', 'pose-heart', 'pose-dead'] },
+    dress:     { name: '小裙子',   icon: '👗',   states: ['idle', 'pose-cool', 'pose-badsmile', 'pose-heart', 'pose-dead'] }
   };
   const COSTUME_COVER = Object.keys(COSTUMES).reduce((m, id) => {
     for (const s of COSTUMES[id].states) m[s] = true;
@@ -560,11 +561,14 @@
   // ---- 皮肤工坊 · 服装（穿套装 / 脱掉）----
   function persistCostume() { try { localStorage.setItem('coco.costume', JSON.stringify(currentCostume)); } catch {} }
   function restoreCostume() {
-    try {
-      const c = JSON.parse(localStorage.getItem('coco.costume'));
-      if (typeof c === 'string' && COSTUMES[c]) currentCostume = c;
-      else currentCostume = null;
-    } catch { currentCostume = null; }
+    let stored = null;
+    try { stored = localStorage.getItem('coco.costume'); } catch {}
+    if (stored == null || stored === '') {
+      currentCostume = 'pirate'; // 首次使用：默认穿上汪洋大盗
+    } else {
+      try { const c = JSON.parse(stored); currentCostume = (typeof c === 'string' && COSTUMES[c]) ? c : null; }
+      catch { currentCostume = null; }
+    }
   }
   async function refreshCurrentSprite() {
     // 换装 / 换肤后按当前状态重新加载对应精灵（保留朝左镜像与服装优先级）
