@@ -33,8 +33,27 @@
     scratch:     { duration: 3400, cls: 'pet-scratch' },
     drag:        { duration: null, cls: 'pet-drag' },
     drop:        { duration: 520, cls: 'pet-drop', sprite: 'core' },
-    sleep:       { duration: null, cls: 'pet-sleep', fps: 2 }
+    sleep:       { duration: null, cls: 'pet-sleep', fps: 2 },
+    // ---- 拍照搞怪 pose（独立动作，用于「📸 拍照模式」摆拍）----
+    'pose-cool':     { duration: null, cls: 'pet-pose', fps: 2 },
+    'pose-badsmile': { duration: null, cls: 'pet-pose', fps: 2 },
+    'pose-heart':    { duration: null, cls: 'pet-pose', fps: 2 },
+    'pose-dead':     { duration: null, cls: 'pet-pose', fps: 2 }
   };
+
+  // ===================== 皮肤工坊：服装系统 =====================
+  // 服装 = 替代「待机精灵」的套装形象：穿上后在桌面以穿衣的 Coco 待机。
+  // 每套服装对应 assets/sprites/<costume>/idle/frame-N.png；其它动作状态回退到基础猫。
+  // 服装的非橘色像素（面罩/佩剑/裙子等）天然被皮肤换色保护，不会误染。
+  const COSTUMES = {
+    pirate:    { name: '汪洋大盗', icon: '🏴‍☠️', states: ['idle', 'pose-cool', 'pose-badsmile', 'pose-heart', 'pose-dead'] },
+    swordsman: { name: '剑客',     icon: '🗡️',   states: ['idle'] }
+  };
+  const COSTUME_COVER = Object.keys(COSTUMES).reduce((m, id) => {
+    for (const s of COSTUMES[id].states) m[s] = true;
+    return m;
+  }, {});
+  let currentCostume = null; // 当前穿衣 id；null = 裸猫（基础橘猫）
 
   const petImg = document.getElementById('petImg');
   const menu = document.getElementById('menu');
@@ -60,27 +79,34 @@
     aiLocalStart() { return Promise.resolve({ ok: false }); }
   };
 
-  // ---- 精灵帧加载与缓存 ----
+  // ---- 精灵帧加载与缓存（服装感知：穿衣状态下，被服装覆盖的状态优先读服装精灵）----
   const framesCache = {};
+  function probeOne(url) {
+    return new Promise((res) => {
+      const t = new Image();
+      t.onload = () => res(true);
+      t.onerror = () => res(false);
+      t.src = url;
+    });
+  }
   function probeFrames(state) {
-    if (framesCache[state]) return Promise.resolve(framesCache[state]);
+    const cacheKey = currentCostume ? `${currentCostume}/${state}` : state;
+    if (framesCache[cacheKey]) return Promise.resolve(framesCache[cacheKey]);
     return (async () => {
-      const list = [];
-      for (let i = 1; i <= 12; i++) {
-        const url = `${SPRITE_BASE}/${state}/frame-${i}.png`;
-        try {
-          const ok = await new Promise((res) => {
-            const t = new Image();
-            t.onload = () => res(true);
-            t.onerror = () => res(false);
-            t.src = url;
-          });
-          if (!ok) break;
-          list.push(url);
-        } catch (e) { break; }
+      // 服装若覆盖该状态，优先读 <costume>/<state>/，读不到再回退基础 <state>
+      const dirs = [];
+      if (currentCostume && COSTUME_COVER[state]) dirs.push(`${SPRITE_BASE}/${currentCostume}/${state}`);
+      dirs.push(`${SPRITE_BASE}/${state}`);
+      for (const dir of dirs) {
+        const list = [];
+        for (let i = 1; i <= 12; i++) {
+          const url = `${dir}/frame-${i}.png`;
+          try { const ok = await probeOne(url); if (!ok) break; list.push(url); } catch { break; }
+        }
+        if (list.length) { framesCache[cacheKey] = list; return list; }
       }
-      framesCache[state] = list;
-      return list;
+      framesCache[cacheKey] = [];
+      return [];
     })();
   }
 
@@ -126,7 +152,7 @@
         startAnim(frames, cfg.fps || ANIM_FPS);
       } else {
         stopAnim();
-        petImg.src = frameSrc(`${SPRITE_BASE}/${sprite}/frame-1.png`);
+        petImg.src = frameSrc(frames[0] || `${SPRITE_BASE}/${sprite}/frame-1.png`);
       }
     });
 
@@ -454,7 +480,7 @@
       probeFrames(sprite).then((frames) => {
         if (currentState !== name) return;
         if (frames.length > 1) startAnim(frames, cfg.fps || ANIM_FPS);
-        else { stopAnim(); petImg.src = frameSrc(`${SPRITE_BASE}/${sprite}/frame-1.png`); }
+        else { stopAnim(); petImg.src = frameSrc(frames[0] || `${SPRITE_BASE}/${sprite}/frame-1.png`); }
       });
     }
   }
@@ -530,6 +556,175 @@
     else showBubble('剪贴板里没有有效的配色码哦', 3000);
   });
   document.getElementById('skinClose').addEventListener('click', closeSkinPanel);
+
+  // ---- 皮肤工坊 · 服装（穿套装 / 脱掉）----
+  function persistCostume() { try { localStorage.setItem('coco.costume', JSON.stringify(currentCostume)); } catch {} }
+  function restoreCostume() {
+    try {
+      const c = JSON.parse(localStorage.getItem('coco.costume'));
+      if (typeof c === 'string' && COSTUMES[c]) currentCostume = c;
+      else currentCostume = null;
+    } catch { currentCostume = null; }
+  }
+  async function refreshCurrentSprite() {
+    // 换装 / 换肤后按当前状态重新加载对应精灵（保留朝左镜像与服装优先级）
+    const name = currentState;
+    if (!name || !STATES[name]) return;
+    const cfg = STATES[name];
+    const sprite = cfg.sprite || name;
+    probeFrames(sprite).then((frames) => {
+      if (currentState !== name) return;
+      if (frames.length > 1) startAnim(frames, cfg.fps || ANIM_FPS);
+      else { stopAnim(); petImg.src = frameSrc(frames[0] || `${SPRITE_BASE}/${sprite}/frame-1.png`); }
+    });
+  }
+  async function applyCostume(id) {
+    if (id && !COSTUMES[id]) return;
+    if (currentCostume === id) return;
+    currentCostume = id;
+    recolorCache = {}; // 换装后旧精灵配色缓存作废，需重新染
+    persistCostume();
+    syncCostumeButtons();
+    await refreshCurrentSprite();
+    showBubble(id ? `已穿上「${COSTUMES[id].name}」！${COSTUMES[id].icon}` : '脱掉衣服，恢复裸猫本色~ 🐱', 3200);
+  }
+  function syncCostumeButtons() {
+    document.querySelectorAll('.costume-btn').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.costume === (currentCostume || 'none'));
+    });
+  }
+  document.querySelectorAll('.costume-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.costume;
+      applyCostume(id === 'none' ? null : id);
+    });
+  });
+  // 打开皮肤工坊时同步服装按钮态
+  const _origOpenSkin = openSkinPanel;
+  openSkinPanel = function () {
+    syncCostumeButtons();
+    _origOpenSkin();
+  };
+
+  // ---- 皮肤工坊 · 拍照模式（摆 pose + 出一张像素档案卡）----
+  const photoPanel = document.getElementById('photoPanel');
+  const photoPoseName = document.getElementById('photoPoseName');
+  const POSES = {
+    'pose-cool':     { name: '摆酷',   icon: '🕶️' },
+    'pose-badsmile': { name: '坏笑',   icon: '😏' },
+    'pose-heart':    { name: '比心',   icon: '💖' },
+    'pose-dead':     { name: '装死',   icon: '💫' }
+  };
+  let currentPose = null; // 当前选中的 pose id（用于拍照卡片标注）
+  function openPhotoPanel() {
+    hideMenu();
+    if (!skinPanel.hidden) closeSkinPanel();
+    if (!aiPanel.hidden) closeAiPanel();
+    if (!assistPanel.hidden) closeAssistPanel();
+    updatePhotoPoseHint();
+    photoPanel.hidden = false;
+    api.panelResize(true);
+  }
+  function closePhotoPanel() {
+    photoPanel.hidden = true;
+    api.panelResize(false);
+    if (currentState && /^pose-/.test(currentState)) setState('idle'); // 退出拍照回待机
+  }
+  function updatePhotoPoseHint() {
+    const c = currentCostume ? COSTUMES[currentCostume] : null;
+    const p = currentPose ? POSES[currentPose] : null;
+    photoPoseName.textContent = `${c ? c.icon + ' ' + c.name : '裸猫'} · ${p ? p.icon + ' ' + p.name : '未选 pose'}`;
+  }
+  function selectPose(id) {
+    if (!POSES[id]) return;
+    currentPose = id;
+    if (currentState === 'sleep') setState('idle');
+    setState(id);
+    updatePhotoPoseHint();
+    showBubble(`摆个「${POSES[id].name}」pose！${POSES[id].icon}`, 2400);
+  }
+  document.querySelectorAll('.pose-btn').forEach((btn) => {
+    btn.addEventListener('click', () => selectPose(btn.dataset.pose));
+  });
+  function hexBg(hex) { // 供卡片绘制
+    const n = parseInt(hex.replace('#', ''), 16);
+    return [n >> 16 & 255, n >> 8 & 255, n & 255];
+  }
+  async function capturePhotoCard() {
+    // 取当前显示帧（含服装 / 皮肤换色）画到卡片
+    const src = petImg.currentSrc || petImg.src;
+    const { cv } = await loadBitmap(src);
+    const cw = cv.width, ch = cv.height;
+    // 裁出猫咪主体（透明边缘收拢），避免卡片留大块空白
+    const g = cv.getContext('2d', { willReadFrequently: true });
+    let d;
+    try { d = g.getImageData(0, 0, cw, ch).data; } catch { d = null; }
+    let x0 = 0, y0 = 0, x1 = cw, y1 = ch;
+    if (d) {
+      const minX = [], minY = [];
+      for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) { if (d[(y * cw + x) * 4 + 3] > 20) { minX.push(x); minY.push(y); } }
+      if (minX.length) { x0 = Math.min(...minX); x1 = Math.max(...minX); y0 = Math.min(...minY); y1 = Math.max(...minY); }
+    }
+    const catW = Math.max(1, x1 - x0 + 1), catH = Math.max(1, y1 - y0 + 1);
+    const W = 520, H = 720;
+    const card = document.createElement('canvas');
+    card.width = W; card.height = H;
+    const ctx = card.getContext('2d');
+    // 暖橘像素卡片底 + 描边
+    const grad = ctx.createLinearGradient(0, 0, 0, H);
+    grad.addColorStop(0, '#3a2a18'); grad.addColorStop(1, '#241810');
+    ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = '#ffb066'; ctx.lineWidth = 3; ctx.strokeRect(6, 6, W - 12, H - 12);
+    ctx.strokeStyle = 'rgba(255,200,150,0.4)'; ctx.lineWidth = 1; ctx.strokeRect(12, 12, W - 24, H - 24);
+    // 顶栏：logo 文案
+    ctx.fillStyle = '#ffcf9a'; ctx.font = 'bold 22px "Courier New", monospace'; ctx.textAlign = 'center';
+    ctx.fillText('🍝 DESKPET COCO 🐱', W / 2, 46);
+    // 猫咪（居中、自适应缩放、贴合卡片）
+    const scale = Math.min(300 / catW, 340 / catH);
+    const dw = Math.round(catW * scale), dh = Math.round(catH * scale);
+    const dx = (W - dw) / 2, dy = 70 + Math.max(0, (330 - dh) / 2);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(cv, x0, y0, catW, catH, dx, dy, dw, dh);
+    // 卡片信息行
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#ffe2bb'; ctx.font = 'bold 17px "Courier New", monospace';
+    // 从实际显示的精灵路径推断「当前穿的是哪套服装」，保证卡片标注与画面一致
+    const srcLower = String(src).toLowerCase();
+    let wornCostume = null;
+    for (const id of Object.keys(COSTUMES)) if (srcLower.indexOf('/' + id + '/') >= 0) { wornCostume = id; break; }
+    const c = wornCostume ? COSTUMES[wornCostume] : null;
+    const p = currentPose ? POSES[currentPose] : null;
+    const lv = bond && bond.isEnabled() ? bond.levelInfo() : { name: '开放', lv: 4 };
+    const nm = bond && bond.getName ? bond.getName() : '';
+    const line2 = (c ? `${c.icon} ${c.name}` : '🐱 裸猫本色') + '  ·  ' + (p ? `${p.icon} ${p.name}` : '📸 悠闲一瞥');
+    ctx.fillText(line2, W / 2, 560);
+    ctx.fillStyle = '#ffb066'; ctx.font = '14px "Courier New", monospace';
+    const bondTitle = bond && bond.isEnabled() ? `羁绊 ${lv.name} Lv${lv.lv}` : '羁绊开放';
+    ctx.fillText(`羁绊：${bondTitle}${nm ? '  ·  主人：' + nm : ''}`, W / 2, 590);
+    const today = new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' });
+    ctx.fillText(`🗓 ${today}`, W / 2, 616);
+    ctx.fillStyle = 'rgba(255,200,150,0.55)'; ctx.font = '12px "Courier New", monospace';
+    ctx.fillText('DeskPet Coco · 桌面咖啡猫', W / 2, 672);
+    return card.toDataURL('image/png');
+  }
+  async function takePhoto() {
+    if (!currentPose) { showBubble('先选一个 pose 再拍照嘛~', 2600); return; }
+    if (currentState === 'sleep') setState('idle');
+    if (!(currentState && /^pose-/.test(currentState))) setState(currentPose);
+    await new Promise((r) => setTimeout(r, 120)); // 等当前帧渲染
+    showBubble('咔嚓！在给你留纪念照啦~ 📸', 2400);
+    try {
+      const dataUrl = await capturePhotoCard();
+      const r = await api.savePhoto(dataUrl);
+      api.copyPhoto(dataUrl);
+      showBubble(r && r.path ? `照片已存：${r.path}（已复制到剪贴板）` : '照片已复制到剪贴板~', 5200);
+    } catch {
+      showBubble('拍照失败……再试一次~', 3000);
+    }
+  }
+  document.getElementById('photoTake').addEventListener('click', takePhoto);
+  document.getElementById('photoBack').addEventListener('click', () => { setState('idle'); });
+  document.getElementById('photoClose').addEventListener('click', closePhotoPanel);
 
   // ---- AI 大脑面板 ----
   function openAiPanel() {
@@ -1035,6 +1230,7 @@
     if (name === 'status') { showStatus(); return; }
     if (name === 'quit') { api.quit(); return; }
     if (name === 'skin') { openSkinPanel(); return; }
+    if (name === 'photo') { openPhotoPanel(); return; }
     if (name === 'ai') { openAiPanel(); return; }
     if (name === 'assist') { openAssistPanel(); return; }
     if (name === 'bond') {
@@ -1320,13 +1516,15 @@
     if (msg) showBubble(msg, 8000);
   });
 
+  restoreSkin(); // 恢复上次保存的皮肤配色
+  if (skinScheme.active) applySkin(skinScheme);
+  restoreCostume(); // 恢复上次穿衣（须在 setState 之前，避免先以裸猫启动基础动画导致换装后动画未停）
+  if (currentCostume) { recolorCache = {}; syncCostumeButtons(); }
   setState('idle');
   scheduleIdleLoop();
   checkLongIdle();
   loadNeeds(); // 恢复上次的四维状态（饱食/清洁/精力/心情）
   tickNeeds();
-  restoreSkin(); // 恢复上次保存的皮肤配色
-  if (skinScheme.active) applySkin(skinScheme);
   api.aiGetConfig().then((cfg) => { if (cfg && typeof cfg === 'object') aiConfig = cfg; }).catch(() => {}); // 恢复 AI 配置
   setTimeout(() => showBubble('喵~ 我是咖啡猫 Coco，也是你的桌面小助理：把文件拖到我身上我会帮你放进回收站；坐久了、天气有变我也会提醒你~'), 2500);
 })();

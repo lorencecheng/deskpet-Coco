@@ -45,6 +45,7 @@
       <button data-action="weather">🌤 查看天气</button>
       <button data-action="sleep">😴 睡觉</button>
       <button data-action="skin">🎨 皮肤工坊</button>
+      <button data-action="photo">📸 拍照模式</button>
       <button data-action="ai">🧠 AI 设置</button>
       <button data-action="assist">💬 问问 Coco</button>
       <button data-action="bond">💞 羁绊系统</button>
@@ -53,6 +54,15 @@
     <!-- 皮肤工坊面板（默认隐藏） -->
     <div id="skinPanel" hidden>
       <div class="skin-title">🎨 皮肤工坊</div>
+      <div class="costume-row">
+        <span class="costume-label">服装</span>
+        <div class="costume-options">
+          <button class="costume-btn" data-costume="none">🐱 裸猫</button>
+          <button class="costume-btn" data-costume="pirate">🏴‍☠️ 汪洋大盗</button>
+          <button class="costume-btn" data-costume="swordsman">🗡️ 剑客</button>
+        </div>
+      </div>
+      <div class="skin-hint">服装在「待机」时显示；吃喝洗澡等动作会临时用基础形象，做完回到穿衣待机。</div>
       <div class="skin-presets">
         <button data-skin="orange">🟠 橘猫</button>
         <button data-skin="black">⚫ 黑猫</button>
@@ -118,6 +128,20 @@
         <button id="assistSend">发</button>
       </div>
       <div class="assist-hint">羁绊越高，Coco 越得力。挚友解锁长文提炼、存笔记、帮你写短句。</div>
+    </div>
+    <!-- 拍照模式：摆 pose + 出一张像素档案卡 -->
+    <div id="photoPanel" hidden>
+      <div class="skin-title">📸 拍照模式</div>
+      <div class="pose-row">
+        <button class="pose-btn" data-pose="pose-cool">🕶️ 摆酷</button>
+        <button class="pose-btn" data-pose="pose-badsmile">😏 坏笑</button>
+        <button class="pose-btn" data-pose="pose-heart">💖 比心</button>
+        <button class="pose-btn" data-pose="pose-dead">💫 装死</button>
+      </div>
+      <div class="photo-preview" id="photoPoseName">选一个 pose 摆起来吧~</div>
+      <div class="skin-row"><button id="photoTake" class="photo-take">📸 拍照保存</button><button id="photoBack">↩ 回待机</button></div>
+      <div class="skin-hint">先选 pose，猫会在桌面摆好动作；点「拍照保存」会生成一张带羁绊/服装信息的像素档案卡，自动存进「图片/DeskPet Coco」并复制到剪贴板。</div>
+      <button id="photoClose">完成 ✔</button>
     </div>
   </div>
   <script src="bond.js"></script>

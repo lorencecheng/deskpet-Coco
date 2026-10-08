@@ -2,7 +2,7 @@
  * DeskPet Coco — 主进程
  * 负责创建透明置顶窗口、托盘菜单、拖动定位、桌面巡游与动作 IPC。
  */
-const { app, BrowserWindow, Tray, Menu, ipcMain, screen, nativeImage, shell, powerMonitor } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, screen, nativeImage, shell, powerMonitor, clipboard } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
@@ -635,6 +635,28 @@ function registerIpc() {
     const delta = target - b.height;
     win.setBounds({ x: b.x, y: Math.round(b.y - delta / 2), width: b.width, height: target });
     panelExpanded = !!open;
+  });
+
+  // ---- 皮肤工坊 · 拍照：保存像素档案卡 PNG 到「图片/DeskPet Coco」，并写入剪贴板 ----
+  ipcMain.handle('pet:save-photo', (_e, dataUrl) => {
+    try {
+      const img = nativeImage.createFromDataURL(dataUrl);
+      if (img.isEmpty()) return { path: '' };
+      const dir = path.join(app.getPath('pictures'), 'DeskPet Coco');
+      fs.mkdirSync(dir, { recursive: true });
+      const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const file = path.join(dir, `Coco-${stamp}.png`);
+      fs.writeFileSync(file, img.toPNG());
+      clipboard.writeImage(img);
+      return { path: file };
+    } catch { return { path: '' }; }
+  });
+  ipcMain.handle('pet:copy-photo', (_e, dataUrl) => {
+    try {
+      const img = nativeImage.createFromDataURL(dataUrl);
+      if (!img.isEmpty()) clipboard.writeImage(img);
+    } catch {}
+    return true;
   });
 
   // ---- 小助理：吃文件（把拖到猫身上的文件送入回收站，可恢复） ----

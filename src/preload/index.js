@@ -79,6 +79,10 @@ contextBridge.exposeInMainWorld('coco', {
   readSprite(relPath) { return ipcRenderer.invoke('read-sprite', relPath); },
   /** 手动查询当前天气（主进程立即返回天气概况） */
   checkWeather() { ipcRenderer.send('pet:weather-check'); },
+  /** 保存拍照卡片 PNG，返回 { path }；同时把图片写入剪贴板 */
+  savePhoto(dataUrl) { return ipcRenderer.invoke('pet:save-photo', dataUrl); },
+  /** 把 PNG dataURL 写入剪贴板（图片） */
+  copyPhoto(dataUrl) { return ipcRenderer.invoke('pet:copy-photo', dataUrl); },
 
   // ---- AI 大脑 ----
   /** 读取 AI 配置 */
