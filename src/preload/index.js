@@ -25,6 +25,14 @@ contextBridge.exposeInMainWorld('coco', {
     ipcRenderer.on('pet:chase-done', listener);
     return () => ipcRenderer.removeListener('pet:chase-done', listener);
   },
+  /** 逗猫小游戏：让主进程起一个会跳走的发光光点，猫去追 */
+  dotChase() { ipcRenderer.send('pet:dotchase'); },
+  /** 追光点小游戏结束回调 */
+  onDotChaseDone(callback) {
+    const listener = () => callback();
+    ipcRenderer.on('pet:dotchase-done', listener);
+    return () => ipcRenderer.removeListener('pet:dotchase-done', listener);
+  },
   /** 桌面巡游：让主进程沿屏幕四边闲逛 */
   walk() { ipcRenderer.send('pet:walk'); },
   /** 巡游方向回调：dir = 'left' | 'right' */

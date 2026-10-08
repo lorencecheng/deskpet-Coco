@@ -732,6 +732,18 @@
     chaseTimeout = setTimeout(() => { if (chaseActive) { chaseActive = false; setState('idle'); } }, 15000);
   }
 
+  // 逗猫小游戏：追光点（复用 chase 跑动动画，但不触发追光标，避免冲突）
+  let dotChaseActive = false;
+  function startDotChase() {
+    if (currentState === 'sleep') setState('idle');
+    applyInteraction('chase');
+    dotChaseActive = true;
+    setState('chase');
+    api.dotChase(); // 主进程驱动发光光点 + 猫去追
+    clearTimeout(chaseTimeout);
+    chaseTimeout = setTimeout(() => { if (dotChaseActive) { dotChaseActive = false; setState('idle'); } }, 15000);
+  }
+
   function runAction(name) {
     if (name === 'status') { showStatus(); return; }
     if (name === 'quit') { api.quit(); return; }
@@ -742,6 +754,7 @@
     if (name === 'walk') { setState('walk'); return; }
     if (!STATES[name]) return;
     if (name === 'chase') { startChase(); return; }
+    if (name === 'dotchase') { startDotChase(); return; }
     if (currentState === 'sleep' && name !== 'sleep') setState('idle'); // 先唤醒
     applyInteraction(name);
     setState(name);
@@ -785,7 +798,10 @@
       applyInteraction('happy');
       setState('drop');
     } else if (wasQuick) {
-      onPetClick();
+      // 计算点击在猫咪图片内的相对位置(0-1)，交给部位点击分区判断
+      const rx = e.offsetX / (petImg.clientWidth || 1);
+      const ry = e.offsetY / (petImg.clientHeight || 1);
+      onPetClick(rx, ry);
     }
     hideMenu();
   }
@@ -793,8 +809,34 @@
   petImg.addEventListener('pointercancel', endPointer);
   petImg.addEventListener('contextmenu', (e) => { e.preventDefault(); showMenu(); });
 
-  function onPetClick() {
+  // ---- 部位点击：点脑袋/爪子/肚子，猫反应不一样（复用现有状态，不新增精灵帧）----
+  const ZONE_REACT = {
+    head:  ['摸头，眯眼享受~ 😌', '头这里最舒服，别停~', '哼，这位置还算会摸'],
+    paw:   ['别碰我爪，痒~', '再摸要咬你哦~', '爪子收了，休想拿捏我'],
+    belly: ['哎呀……肚子被摸，翻个身~', '肚子不能随便摸！', '痒死了，滚一圈躲你']
+  };
+  // 把 petImg 内的点击坐标(0-1)映射到部位：头在上方，肚子在下方中部，爪在两侧
+  function clickZone(px, py) {
+    if (px == null || py == null) return 'body';
+    if (py < 0.42) return 'head';
+    if (py > 0.66 && px > 0.28 && px < 0.72) return 'belly';
+    if (px < 0.28 || px > 0.72) return 'paw';
+    return 'body';
+  }
+  function onPetClick(px, py) {
     if (currentState === 'sleep') { setState('idle'); applyInteraction('happy'); setState('happy'); return; }
+    const zone = clickZone(px, py);
+    if (zone === 'head' || zone === 'paw' || zone === 'belly') {
+      needs.mood = Math.min(100, needs.mood + 12);
+      updateIndicator(); updatePanel(); saveNeeds();
+      const zoneName = zone === 'head' ? '脑袋' : (zone === 'paw' ? '爪子' : '肚子');
+      maybeAiLine(`你点了我的${zoneName}`).then((used) => {
+        if (!used) showBubble(ZONE_REACT[zone][Math.floor(Math.random() * ZONE_REACT[zone].length)], 3600);
+      });
+      if (zone === 'belly') setState('drop');      // 摸肚子→躺倒翻身
+      else setState('happy');
+      return;
+    }
     applyInteraction('happy');
     setState('happy');
   }
@@ -845,6 +887,13 @@
   api.onChaseDone(() => {
     if (chaseActive) {
       chaseActive = false;
+      setState('happy');
+      setTimeout(() => { if (currentState === 'happy') setState('idle'); }, 1600);
+    }
+  });
+  api.onDotChaseDone(() => {
+    if (dotChaseActive) {
+      dotChaseActive = false;
       setState('happy');
       setTimeout(() => { if (currentState === 'happy') setState('idle'); }, 1600);
     }

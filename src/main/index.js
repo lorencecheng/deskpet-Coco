@@ -36,6 +36,12 @@ let chaseTimer = null;
 let chaseSettle = 0;        // 猫已在光标附近"待命"的累计毫秒
 let chaseLastCursor = null; // 上一次采样到的光标位置（用于判断光标是否在动）
 
+// 逗猫小游戏：追光点（一个会跳走的发光小圆点，猫放下巡游去追）
+let dotChasing = false;
+let dotTimer = null;
+let dotWin = null;
+let dotEndAt = 0;
+
 // 边缘藏猫状态：拖到左/右边缘时收进屏幕外，偶尔探头/尾巴
 let hiddenMode = null;      // null | 'left' | 'right'
 let peekTimer = null;
@@ -314,6 +320,83 @@ function stopChase() {
   if (chaseTimer) { clearInterval(chaseTimer); chaseTimer = null; }
 }
 
+// ===================== 逗猫小游戏：追光点 =====================
+const DOT_SIZE = 26;            // 光点窗口边长
+function dotRandomPos() {
+  const wa = screen.getPrimaryDisplay().workArea;
+  const m = 30;
+  return {
+    x: wa.x + m + Math.random() * (wa.width - 2 * m),
+    y: wa.y + m + Math.random() * (wa.height - 2 * m)
+  };
+}
+/** 创建一个发光小圆点窗口，放到随机位置；返回光点中心坐标 */
+function createDot() {
+  if (dotWin && !dotWin.isDestroyed()) return;
+  dotWin = new BrowserWindow({
+    width: DOT_SIZE, height: DOT_SIZE,
+    transparent: true, frame: false, alwaysOnTop: true,
+    skipTaskbar: true, resizable: false, focusable: false, hasShadow: false,
+    webPreferences: { contextIsolation: true }
+  });
+  dotWin.setAlwaysOnTop(true, 'screen-saver');
+  dotWin.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(
+    '<body style="margin:0;background:transparent">' +
+    '<div style="width:' + DOT_SIZE + 'px;height:' + DOT_SIZE + 'px;border-radius:50%;' +
+    'background:radial-gradient(circle at 40% 35%, #fff6c8, #ffd54f 45%, rgba(255,120,0,0) 78%);' +
+    'box-shadow:0 0 16px 7px rgba(255,200,60,0.55)"></div></body>'
+  ));
+  const p = dotRandomPos();
+  dotWin.setPosition(Math.round(p.x - DOT_SIZE / 2), Math.round(p.y - DOT_SIZE / 2));
+}
+/** 猫抓到光点：让光点跳到附近一个新位置，制造"追着跑"的乐趣 */
+function relocateDot() {
+  if (!dotWin || dotWin.isDestroyed()) return;
+  const p = dotRandomPos();
+  dotWin.setPosition(Math.round(p.x - DOT_SIZE / 2), Math.round(p.y - DOT_SIZE / 2));
+}
+function stopDotChase() {
+  dotChasing = false;
+  if (dotTimer) { clearInterval(dotTimer); dotTimer = null; }
+  if (dotWin && !dotWin.isDestroyed()) { try { dotWin.destroy(); } catch {} }
+  dotWin = null;
+  if (win && !win.isDestroyed()) {
+    sendAction('idle');
+    win.webContents.send('pet:dotchase-done');
+  }
+}
+/** 每帧把猫朝光点移动，抓到就跳走；总时长到就结束 */
+function dotChaseTick() {
+  if (!dotChasing || !win || win.isDestroyed()) { stopDotChase(); return; }
+  const b = win.getBounds();
+  const [dotX, dotY] = dotWin ? dotWin.getPosition() : [0, 0];
+  const cx = b.x + b.width / 2;
+  const cy = b.y + b.height / 2;
+  const dx = (dotX + DOT_SIZE / 2) - cx;
+  const dy = (dotY + DOT_SIZE / 2) - cy;
+  const dist = Math.hypot(dx, dy);
+  if (!Number.isFinite(dist)) { stopDotChase(); return; }
+  // 转身（供渲染进程水平镜像）
+  win.webContents.send('pet:walk-dir', dx < 0 ? 'left' : 'right');
+  if (dist < 26) { relocateDot(); return; } // 抓到→光点跳走
+  const step = Math.max(3, Math.min(14, dist * 0.30));
+  const nx = Math.round(b.x + (dx / dist) * step);
+  const ny = Math.round(b.y + (dy / dist) * step);
+  if (Number.isFinite(nx) && Number.isFinite(ny)) win.setPosition(nx, ny);
+  if (Date.now() > dotEndAt) stopDotChase(); // 玩够了，光点消失
+}
+function startDotChase() {
+  if (!win || win.isDestroyed()) return;
+  stopWandering();
+  stopChase();
+  stopDotChase();
+  dotChasing = true;
+  createDot();
+  dotEndAt = Date.now() + 12000; // 一局约 12 秒
+  sendAction('dotchase');        // 渲染端切到 chase 跑动动画（独立动作，不触发追光标）
+  dotTimer = setInterval(dotChaseTick, 33);
+}
+
 /** 退出边缘藏猫 */
 function exitEdgeHide() {
   hiddenMode = null;
@@ -454,6 +537,7 @@ function createTray() {
     { label: '喂意大利宽面', click: () => sendAction('feed') },
     { label: '玩毛线球', click: () => sendAction('yarn') },
     { label: '追光标', click: () => sendAction('chase') },
+    { label: '逗猫·追光点', click: () => sendAction('dotchase') },
     { label: '洗澡', click: () => sendAction('bath') },
     { label: '钓鱼', click: () => sendAction('fishing') },
     { label: '抓痒', click: () => sendAction('scratch') },
@@ -843,6 +927,9 @@ function registerIpc() {
 
   // 桌面巡游
   ipcMain.on('pet:walk', () => startWandering());
+
+  // 逗猫小游戏：追光点
+  ipcMain.on('pet:dotchase', () => startDotChase());
 }
 
 // 单实例锁：避免重复打开多个宠物
