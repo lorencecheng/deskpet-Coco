@@ -130,30 +130,70 @@
     if (cfg.duration) autoTimer = setTimeout(() => setState('idle'), cfg.duration);
   }
 
-  // ---- 待机时的随机灵动行为：眨眼 / 洗脸 / 打哈欠 / 挠痒，并根据心情与饱食度联动 ----
+  // ---- 随机自主行为：待机时猫自己会"做点事"，按心情/饱食/精力加权；AI 开启时由 AI 自主挑动作+吐槽 ----
   let idleLoopTimer = null;
-  const IDLE_ACTIONS = ['idle-blink', 'groom', 'yawn', 'scratch'];
-  const IDLE_BUBBLES = {
-    groom:  ['洗脸脸，保持体面~ 🧼', '舔舔爪子理理毛，我可精致了~', '洗香香，本猫最优雅~'],
-    yawn:   ['哈——真困呀~ 🥱', '打个哈欠，眯一会儿~', '这日子好闲……先困一下~'],
-    scratch:['挠一挠，爽~', '嗯？哪里痒……啊舒服了~']
-  };
+  // 行为池：w 为基础权重，下面按需求状态动态加成（knockbowl/doze/sulk 平时 w=0，缺触发时被加权进来）
+  const AUTO_BEHAVIORS = [
+    { id: 'stretch',    state: 'stretch',    w: 1, mood: [0, 100], bubble: ['伸个懒腰~ 舒服~', '哈——伸个懒腰', '骨节咔咔响，拉伸一下~'] },
+    { id: 'lookaround', state: 'lookaround', w: 1, mood: [0, 100], bubble: ['嗯？那边好像有动静……', '东张西望中……', '谁在叫我？看看~'] },
+    { id: 'groom',      state: 'groom',      w: 1, mood: [0, 100], bubble: ['洗脸脸，保持体面~ 🧼', '舔舔爪子理理毛，我可精致了~', '洗香香，本猫最优雅~'] },
+    { id: 'yawn',       state: 'yawn',       w: 1, mood: [0, 100], bubble: ['哈——真困呀~ 🥱', '打个哈欠，眯一会儿~', '这日子好闲……先困一下~'] },
+    { id: 'scratch',    state: 'scratch',    w: 1, mood: [0, 100], bubble: ['挠一挠，爽~', '嗯？哪里痒……啊舒服了~'] },
+    { id: 'play',       state: 'yarn',       w: 2, mood: [60, 100], bubble: ['（自己滚起毛线球）嘿，接招！', '没人陪我？我自己玩！', '毛线球！看我的！'] },
+    { id: 'bounce',     state: 'happy',      w: 1, mood: [60, 100], bubble: ['（开心蹦跶两下）喵~！', '心情好，蹦起来~'] },
+    { id: 'knockbowl',  state: 'drop',       w: 0, mood: [0, 100], bubble: ['啪！我把碗掀了！（饿了）', '碗里空空，气死我了~', '面条呢？！我掀桌！'] },
+    { id: 'doze',       state: 'sleep',      w: 0, mood: [0, 100], bubble: ['眼皮好重……先瘫一下~ 😴', 'ZZZ……（困了先眯一会儿）'], doze: true },
+    { id: 'sulk',       state: 'drop',       w: 1, mood: [0, 35],  bubble: ['哼，没人理我……', '别烦我，我正闹脾气呢~'] }
+  ];
+  function randOf(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+  function pickAutoBehavior() {
+    const entries = AUTO_BEHAVIORS.map((b) => {
+      let w = b.w;
+      // 需求驱动的"个性"加权：很饿想掀碗、很困想打盹、心情差闹脾气
+      if (b.id === 'knockbowl' && needs.hunger < 30) w += 5;
+      if (b.id === 'doze' && needs.energy < 30) w += 5;
+      if (b.id === 'sulk' && needs.mood < 35) w += 3;
+      if ((b.id === 'play' || b.id === 'bounce') && needs.mood < 60) w = 0; // 心情不好不爱玩
+      return { b, w };
+    }).filter((x) => x.w > 0);
+    if (!entries.length) return null;
+    const total = entries.reduce((s, x) => s + x.w, 0);
+    let r = Math.random() * total;
+    for (const x of entries) { r -= x.w; if (r < 0) return x.b; }
+    return entries[entries.length - 1].b;
+  }
+  function playAutoBehavior(b) {
+    // 自主小动作对需求的一点点影响，让"自己做的事"真的参与养成
+    if (b.id === 'knockbowl') needs.mood = Math.max(0, needs.mood - 6);
+    if (b.id === 'sulk') needs.mood = Math.max(0, needs.mood - 2);
+    if (b.id === 'play') { needs.mood = Math.min(100, needs.mood + 6); needs.energy = Math.max(0, needs.energy - 3); }
+    if (b.id === 'bounce') needs.mood = Math.min(100, needs.mood + 4);
+    updateIndicator(); updatePanel(); saveNeeds();
+    if (b.doze) {
+      setState('sleep');
+      showBubble(randOf(b.bubble), 3600);
+      // 打盹是临时小憩，几秒后自己回待机（不像真正睡着那样一直睡）
+      setTimeout(() => { if (currentState === 'sleep') setState('idle'); }, 7000);
+      return;
+    }
+    setState(b.state);
+    showBubble(randOf(b.bubble), 3600);
+  }
   function scheduleIdleLoop() {
     clearTimeout(idleLoopTimer);
     idleLoopTimer = setTimeout(() => {
       if (currentState === 'idle') {
         const mood = needs.mood;
         // 心情低落 → 动作变少、更安静；心情好 → 更多小动作
-        const busy = mood < 35 ? 0.25 : (mood > 65 ? 0.62 : 0.42);
+        const busy = mood < 35 ? 0.28 : (mood > 65 ? 0.65 : 0.45);
         const roll = Math.random();
         if (roll < busy) {
-          // AI 开启时，让它自己挑个动作+吐槽一句；失败再回本地随机动作
-          maybeAiLine('我正闲着发呆').then((usedAi) => {
+          // AI 开启时，让它自己挑个动作+吐槽一句（自主思考）；失败再回本地随机自主行为
+          maybeAiLine('我正闲着发呆，想点心事').then((usedAi) => {
             if (!usedAi && currentState === 'idle') {
-              const action = IDLE_ACTIONS[Math.floor(Math.random() * IDLE_ACTIONS.length)];
-              setState(action);
-              const reacts = IDLE_BUBBLES[action];
-              if (reacts && action !== 'idle-blink') showBubble(reacts[Math.floor(Math.random() * reacts.length)], 3600);
+              const b = pickAutoBehavior();
+              if (b) playAutoBehavior(b);
+              else setState('idle-blink');
             }
           });
         } else {
@@ -628,7 +668,8 @@
   // AI 动作名 → 本地状态：让 AI 也能"决定"猫做什么（仅待机时生效，避免打断巡游/追光标）
   const AI_ACTION_STATES = {
     blink: 'idle-blink', wash: 'groom', yawn: 'yawn', stretch: 'stretch',
-    ignore: 'idle', stare: 'lookaround', sleep: 'sleep', tease: 'happy'
+    ignore: 'idle', stare: 'lookaround', sleep: 'sleep', tease: 'happy',
+    play: 'yarn', knock: 'drop', sulk: 'drop'
   };
   function parseAiJson(s) {
     try {
@@ -643,7 +684,7 @@
     const needsText = Object.keys(NEED_DEFS).map((k) => `${NEED_DEFS[k].label}:${Math.round(needs[k])}%`).join('，');
     let user = `当前状态：${needsText}。最近事件：${eventText}。`;
     if (userMsg) user += `用户说：${userMsg}。`;
-    user += ' 请只输出一个JSON，形如 {"action":"blink|wash|yawn|stretch|ignore|stare|sleep|tease","text":"一句话气泡，15字内"}，不要任何多余文字、解释或markdown。';
+    user += ' 请只输出一个JSON，形如 {"action":"blink|wash|yawn|stretch|ignore|stare|sleep|tease|play|knock|sulk","text":"一句话气泡，15字内"}，不要任何多余文字、解释或markdown。';
     return [
       { role: 'system', content: aiConfig.systemPrompt || '你是桌面像素胖橘猫Coco，慵懒、有点贱、腹黑但不恶毒，说话简短一句话、15字内、口语化。' },
       { role: 'user', content: user }

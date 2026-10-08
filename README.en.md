@@ -38,6 +38,7 @@ An open-source, always-on-top **desktop pet** that lives on your computer screen
 - **🖐 Part-based petting** — tap Coco's **head** to make it purr, its **belly** to make it roll away, its **paw** to make it playfully bite — different spots, different reactions.
 - **🤲 Long-press petting** — press and hold to start petting: it purrs contentedly, but pet too long and it gets grumpy and rolls away (mood rises then falls, just like a real cat).
 - **🐾 Play: chase the light dot** — a glowing dot hops around your screen; Coco drops everything and sprints after it. Catch it and it bounces away. A fun, casual 10-second game.
+- **🎭 Random autonomous behavior** — even idle, Coco isn't just staring: it stretches, looks around, grooms, scratches, and acts on its mood — **happy** it rolls a yarn ball and bounces, **famished** it knocks over the bowl in a huff, **sleepy** it dozes off with a "ZZZ", **gloomy** it sulks. With AI on, the AI picks its own action + quip; with AI off, the built-in "sassy cat" engine runs — fully offline.
 - **Fully customizable** — sprites live in `assets/sprites/<state>/frame-N.png`; swap images to restyle without touching code.
 
 ## 🧠 How do you know what Coco wants?
