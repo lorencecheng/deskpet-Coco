@@ -509,6 +509,7 @@ function runWanderLeg() {
 
 function startWandering() {
   if (!win || win.isDestroyed()) return;
+  stopDotChase(); // 与追光点互斥：抢窗口位置会造成"巡游不走/光点覆盖位置"
   stopChase();
   stopWandering();
   wandering = true;
@@ -889,6 +890,7 @@ function registerIpc() {
   ipcMain.on('pet:chase', () => {
     if (!win || win.isDestroyed()) return;
     stopWandering();
+    stopDotChase(); // 与追光点互斥，避免两个追踪器同时抢窗口位置
     if (chasing) return; // 已在追踪中
     chasing = true;
     chaseSettle = 0;
