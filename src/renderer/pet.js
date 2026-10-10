@@ -15,25 +15,26 @@
   const ANIM_FPS = 4;
 
   // ---- 状态配置（duration=null 表示保持到被切换）----
+  // fps 整体调慢：原 walk 7 / chase 12 太快像幻灯片，放慢后更像悠闲走路/扑跳
   const STATES = {
     idle:        { duration: null, cls: 'pet-idle', fps: 2 },
     'idle-blink':{ duration: 280, cls: 'pet-idle' },
-    walk:        { duration: null, cls: 'pet-walk', fps: 7 },
-    stretch:     { duration: 2600, cls: 'pet-stretch', fps: 3 },
-    lookaround:  { duration: 2200, cls: 'pet-lookaround', fps: 3 },
-    groom:       { duration: 3400, cls: 'pet-groom', fps: 3 },   // 洗脸舔爪
-    yawn:        { duration: 2800, cls: 'pet-yawn', fps: 3 },    // 打哈欠犯困
-    drink:       { duration: 5200, cls: 'pet-drink', fps: 3 },
-    yarn:        { duration: 4500, cls: 'pet-yarn', fps: 4 },
-    chase:       { duration: null, cls: 'pet-chase', sprite: 'walk', fps: 12 },
-    happy:       { duration: 2000, cls: 'pet-happy', fps: 4 },
-    feed:        { duration: 4200, cls: 'pet-feed', fps: 4 },
-    bath:        { duration: 5200, cls: 'pet-bath', fps: 3 },
+    walk:        { duration: null, cls: 'pet-walk', fps: 3 },
+    stretch:     { duration: 2600, cls: 'pet-stretch', fps: 2 },
+    lookaround:  { duration: 2200, cls: 'pet-lookaround', fps: 2 },
+    groom:       { duration: 3400, cls: 'pet-groom', fps: 2 },   // 洗脸舔爪
+    yawn:        { duration: 2800, cls: 'pet-yawn', fps: 2 },    // 打哈欠犯困
+    drink:       { duration: 5200, cls: 'pet-drink', fps: 2 },
+    yarn:        { duration: 4500, cls: 'pet-yarn', fps: 3 },
+    chase:       { duration: null, cls: 'pet-chase', sprite: 'walk', fps: 5 },
+    happy:       { duration: 2000, cls: 'pet-happy', fps: 2 },
+    feed:        { duration: 4200, cls: 'pet-feed', fps: 2 },
+    bath:        { duration: 5200, cls: 'pet-bath', fps: 2 },
     fishing:     { duration: 4300, cls: 'pet-fishing' },
     scratch:     { duration: 3400, cls: 'pet-scratch' },
     drag:        { duration: null, cls: 'pet-drag' },
     drop:        { duration: 520, cls: 'pet-drop', sprite: 'core' },
-    sleep:       { duration: null, cls: 'pet-sleep', fps: 2 },
+    sleep:       { duration: null, cls: 'pet-sleep', fps: 1.5 },
     // ---- 拍照搞怪 pose（独立动作，用于「📸 拍照模式」摆拍）----
     'pose-cool':     { duration: null, cls: 'pet-pose', fps: 2 },
     'pose-badsmile': { duration: null, cls: 'pet-pose', fps: 2 },
@@ -65,6 +66,12 @@
   const bubble = document.getElementById('bubble');
   const indicator = document.getElementById('indicator');
   const needsPanel = document.getElementById('needsPanel');
+
+  // 任一浮层面板/菜单打开时：给 body 加 ui-open 类，CSS 让猫锚定窗口底部，
+  // 面板在窗口顶部，二者上下分布不再互相遮挡。
+  function setUiOpen(on) {
+    document.body.classList.toggle('ui-open', !!on);
+  }
 
   // preload 桥；在纯浏览器调试时退化为空实现，避免报错
   const api = window.coco || {
@@ -150,7 +157,14 @@
     if (facingLeft) petImg.classList.add('pet-facing-left');
     petImg.classList.add(cfg.cls || 'pet-idle');
 
-    const sprite = cfg.sprite || name; // 某些状态复用其他精灵帧（walk 用 idle 帧 + 走路动画）
+    // 穿上服装后，非服装覆盖的"待机小动作"（伸懒腰/张望/洗脸/打哈欠/抓痒/开心/眨眼）
+    // 继续用服装待机帧，避免穿衣猫和裸猫之间来回闪。
+    // 真正的互动动作（吃面/洗澡/钓鱼/喝水/玩线球/睡觉/走路）仍用各自动作帧。
+    const COSTUME_KEEP_DRESSED = ['idle-blink', 'stretch', 'lookaround', 'groom', 'yawn', 'scratch', 'happy', 'drop'];
+    let sprite = cfg.sprite || name;
+    if (currentCostume && !COSTUME_COVER[sprite] && COSTUME_KEEP_DRESSED.includes(name)) {
+      sprite = 'idle'; // 回退到当前服装的待机帧
+    }
     probeFrames(sprite).then((frames) => {
       if (currentState !== name) return; // 状态已切换，丢弃过期帧
       if (frames.length > 1) {
@@ -527,10 +541,12 @@
     syncSkinInputs();
     updateSkinCode();
     skinPanel.hidden = false;
+    setUiOpen(true);
     api.panelResize(true);
   }
   function closeSkinPanel() {
     skinPanel.hidden = true;
+    setUiOpen(false);
     api.panelResize(false);
   }
   function applyCustom(fur, name) {
@@ -631,10 +647,12 @@
     if (!assistPanel.hidden) closeAssistPanel();
     updatePhotoPoseHint();
     photoPanel.hidden = false;
+    setUiOpen(true);
     api.panelResize(true);
   }
   function closePhotoPanel() {
     photoPanel.hidden = true;
+    setUiOpen(false);
     api.panelResize(false);
     if (currentState && /^pose-/.test(currentState)) setState('idle'); // 退出拍照回待机
   }
@@ -746,10 +764,12 @@
     aiPrompt.value = aiConfig.systemPrompt || '';
     aiCooldown.value = String(aiConfig.cooldownMs || 15000);
     aiPanel.hidden = false;
+    setUiOpen(true);
     api.panelResize(true);
   }
   function closeAiPanel() {
     aiPanel.hidden = true;
+    setUiOpen(false);
     api.panelResize(false);
   }
   function saveAiConfig() {
@@ -844,11 +864,13 @@
     if (bond && bond.getName()) assistName.value = bond.getName();
     updateAssistBadge();
     assistPanel.hidden = false;
+    setUiOpen(true);
     api.panelResize(true);
     setTimeout(() => assistInput.focus(), 60);
   }
   function closeAssistPanel() {
     assistPanel.hidden = true;
+    setUiOpen(false);
     api.panelResize(false);
   }
   function buildAssistantMessages(userText) {
@@ -1038,9 +1060,16 @@
   function showStatus() {
     needsPanel.hidden = false;
     updatePanel();
+    setUiOpen(true);
+    // 状态面板较小，用菜单级高度即可
+    api.menuResize(true);
     // 查看后 5 秒自动消失，无需再点一次
     clearTimeout(panelTimer);
-    panelTimer = setTimeout(() => { needsPanel.hidden = true; }, 5000);
+    panelTimer = setTimeout(() => {
+      needsPanel.hidden = true;
+      setUiOpen(false);
+      api.menuResize(false);
+    }, 5000);
   }
 
   // ---- 本地性格引擎：不开 AI 也"活"的贱猫 ----
@@ -1440,8 +1469,15 @@
   function toggleMenu() {
     menu.hidden = !menu.hidden;
   }
-  function showMenu() { menu.hidden = false; api.menuResize(true); }
-  function hideMenu() { menu.hidden = true; api.menuResize(false); }
+  function showMenu() { menu.hidden = false; setUiOpen(true); api.menuResize(true); }
+  function hideMenu() {
+    if (!menu.hidden) { menu.hidden = true; }
+    // 菜单关闭时，若没有其他面板打开，再收回窗口
+    if (skinPanel.hidden && photoPanel.hidden && aiPanel.hidden && assistPanel.hidden && needsPanel.hidden) {
+      setUiOpen(false);
+      api.menuResize(false);
+    }
+  }
   document.addEventListener('click', (e) => {
     if (!menu.contains(e.target) && !skinPanel.contains(e.target)) hideMenu();
   });

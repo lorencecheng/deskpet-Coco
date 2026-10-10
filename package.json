@@ -39,11 +39,14 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         },
         "portable"
       ],
-      "icon": "assets/icons/tray-256.png"
+      "icon": "assets/icons/tray-256.png",
+      "signAndEditExecutable": false
     },
     "nsis": {
       "oneClick": true,

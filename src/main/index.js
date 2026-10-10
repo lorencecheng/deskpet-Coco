@@ -393,7 +393,8 @@ function startDotChase() {
   dotChasing = true;
   createDot();
   dotEndAt = Date.now() + 12000; // 一局约 12 秒
-  sendAction('dotchase');        // 渲染端切到 chase 跑动动画（独立动作，不触发追光标）
+  // 注意：不要在这里 sendAction('dotchase')——渲染端已在 startDotChase 里切好 chase 动画，
+  // 再回打会导致 渲染→主→渲染 无限递归（追光点"点了没反应"的根因）。
   dotTimer = setInterval(dotChaseTick, 33);
 }
 
@@ -452,12 +453,13 @@ function moveWindowTo(tx, ty, onDone) {
   const dy = ty - sy0;
   const dist = Math.hypot(dx, dy);
   if (dist < 4) { if (onDone) onDone(); return; }
-  const steps = Math.max(8, Math.min(120, Math.ceil(dist / 8))); // 每步约 8px，更慢更自然
+  // 每步约 4px、间隔 60ms ≈ 66px/s，像悠闲散步而不是图片滑动
+  const steps = Math.max(10, Math.ceil(dist / 4));
   let i = 0;
   wanderTimer = setInterval(() => {
     i += 1;
     const t = i / steps;
-    const ease = t * (2 - t); // ease-out，起步略快、到点缓停，更自然
+    const ease = t * (2 - t); // ease-out，起步略快、到点缓停
     const nx = Math.round(sx0 + dx * ease);
     const ny = Math.round(sy0 + dy * ease);
     if (win && !win.isDestroyed() && Number.isFinite(nx) && Number.isFinite(ny)) {
@@ -468,34 +470,24 @@ function moveWindowTo(tx, ty, onDone) {
       wanderTimer = null;
       if (onDone) onDone();
     }
-  }, 100);
+  }, 60);
 }
 
-/** 巡游：随机挑一条边（含角落），走一段、停一会、再来 */
+/** 巡游：只沿屏幕底部横向溜达——走一段、停一会（伸懒腰/张望）、再来，几趟后自动停下 */
 function runWanderLeg() {
   if (!wandering || !win || win.isDestroyed()) { wandering = false; return; }
   const wa = screen.getPrimaryDisplay().workArea;
-  const edges = ['bottom', 'top', 'left', 'right'];
-  const edge = edges[Math.floor(Math.random() * edges.length)];
-  const m = 20; // 边缘留白
-  let tx = 0;
-  let ty = 0;
-  if (edge === 'bottom') {
-    ty = wa.y + wa.height - petH - m;
-    tx = wa.x + m + Math.random() * (wa.width - petW - 2 * m);
-  } else if (edge === 'top') {
-    ty = wa.y + m;
-    tx = wa.x + m + Math.random() * (wa.width - petW - 2 * m);
-  } else if (edge === 'left') {
-    tx = wa.x + m;
-    ty = wa.y + m + Math.random() * (wa.height - petH - 2 * m);
-  } else {
-    tx = wa.x + wa.width - petW - m;
-    ty = wa.y + m + Math.random() * (wa.height - petH - 2 * m);
-  }
+  const m = 24;
+  const ty = wa.y + wa.height - petH - m; // 固定贴底，不再跳上/左/右边
+  const [curX] = win.getPosition();
+  // 选一个横向目标：尽量离当前位置远一点，避免原地打转
+  let tx;
+  const leftTarget = wa.x + m;
+  const rightTarget = wa.x + wa.width - petW - m;
+  if (curX < wa.x + wa.width / 2) tx = rightTarget;
+  else tx = leftTarget;
   // 先切走路动画，再告知朝左/朝右（顺序重要：否则渲染端 setState 会清掉镜像类）
   sendAction('walk');
-  const [curX] = win.getPosition();
   win.webContents.send('pet:walk-dir', tx < curX ? 'left' : 'right');
   moveWindowTo(tx, ty, () => {
     if (!wandering) return;
@@ -503,13 +495,14 @@ function runWanderLeg() {
     const rest = ['idle', 'idle', 'idle', 'stretch', 'lookaround'][Math.floor(Math.random() * 5)];
     sendAction(rest);
     wanderLegs += 1;
-    // 走 2~4 段后自动停下、安静待一会
-    if (wanderLegs >= 2 + Math.floor(Math.random() * 3)) {
+    // 走 2~3 段后自动停下、安静待一会（不再无限巡游）
+    if (wanderLegs >= 2 + Math.floor(Math.random() * 2)) {
       wandering = false;
+      sendAction('idle');
       return;
     }
     // 伸懒腰 / 张望这类小动作多停一会儿
-    const pause = rest === 'idle' ? 900 + Math.random() * 1500 : 1600 + Math.random() * 1600;
+    const pause = rest === 'idle' ? 1200 + Math.random() * 1600 : 2000 + Math.random() * 1600;
     wanderTimer = setTimeout(runWanderLeg, pause);
   });
 }
@@ -606,34 +599,29 @@ function registerIpc() {
     } catch { return null; }
   });
 
-  // 右键菜单开/关：临时拉高窗口以容纳全部选项，宠物居中位置不变
+  // 右键菜单开/关：向上扩窗以容纳全部选项，窗口底边固定（猫在屏幕上的位置不动）
   let menuExpanded = false;
-  const MENU_OPEN_H = 320; // 菜单展开时窗口高度
+  const MENU_OPEN_H = 400; // 菜单展开时窗口高度
   ipcMain.on('pet:menu-resize', (_e, open) => {
     if (!win || win.isDestroyed()) return;
     if (!!open === menuExpanded) return;
-    const [x, y, w, h] = [win.getBounds().x, win.getBounds().y, win.getBounds().width, win.getBounds().height];
+    const b = win.getBounds();
     const target = open ? Math.max(MENU_OPEN_H, petH) : petH;
-    if (open) {
-      const delta = target - h;
-      win.setBounds({ x, y: Math.round(y - delta / 2), width: w, height: target });
-    } else {
-      const delta = h - petH;
-      win.setBounds({ x, y: Math.round(y + delta / 2), width: w, height: petH });
-    }
+    const bottom = b.y + b.height; // 底边锚点：扩窗/缩窗都保持它不动
+    win.setBounds({ x: b.x, y: Math.round(bottom - target), width: b.width, height: target });
     menuExpanded = !!open;
   });
 
-  // 皮肤工坊面板开/关：临时拉高窗口容纳面板，宠物居中位置不变
+  // 皮肤工坊等面板开/关：向上扩窗容纳面板，窗口底边固定（猫不被顶走）
   let panelExpanded = false;
-  const SKIN_PANEL_H = 480;
+  const PANEL_OPEN_H = 460;
   ipcMain.on('pet:panel-resize', (_e, open) => {
     if (!win || win.isDestroyed()) return;
     if (!!open === panelExpanded) return;
     const b = win.getBounds();
-    const target = open ? Math.max(SKIN_PANEL_H, petH) : petH;
-    const delta = target - b.height;
-    win.setBounds({ x: b.x, y: Math.round(b.y - delta / 2), width: b.width, height: target });
+    const target = open ? Math.max(PANEL_OPEN_H, petH) : petH;
+    const bottom = b.y + b.height;
+    win.setBounds({ x: b.x, y: Math.round(bottom - target), width: b.width, height: target });
     panelExpanded = !!open;
   });
 

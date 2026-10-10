@@ -55,9 +55,17 @@ body {
   justify-content: center;
 }
 
+/* 开面板/菜单时：猫锚定窗口底部，面板在上方，互不遮挡 */
+body.ui-open #pet {
+  align-items: flex-end;
+  padding-bottom: 2px;
+}
+
 #petImg {
-  width: 49%;
-  height: 49%;
+  /* 统一按宽度渲染：不同状态精灵比例不同，按宽缩放可避免切换时猫忽大忽小 */
+  width: 86%;
+  height: auto;
+  max-height: 90%;
   object-fit: contain;
   pointer-events: auto;
   image-rendering: auto;
@@ -82,7 +90,7 @@ body {
   0%, 100% { transform: scaleX(var(--facing, 1)) translateY(0) rotate(-2deg); }
   50% { transform: scaleX(var(--facing, 1)) translateY(-5px) rotate(2deg); }
 }
-.pet-walk { animation: stroll 0.55s ease-in-out infinite; }
+.pet-walk { animation: stroll 0.9s ease-in-out infinite; }
 .pet-facing-left { --facing: -1; }
 
 /* 双击：高兴地蹦一下 */
@@ -276,7 +284,7 @@ body {
 #skinPanel, #aiPanel, #photoPanel {
   position: absolute;
   left: 6px;
-  bottom: 6px;
+  top: 6px;
   z-index: 25;
   width: 250px;
   background: var(--panel-grad);
@@ -494,7 +502,7 @@ button.photo-take:hover { filter: brightness(1.08); }
 #needsPanel {
   position: absolute;
   left: 6px;
-  bottom: 6px;
+  top: 6px;
   z-index: 20;
   width: 168px;
   background: var(--panel-grad);
@@ -586,7 +594,7 @@ button.photo-take:hover { filter: brightness(1.08); }
 #assistPanel {
   position: absolute;
   left: 6px;
-  bottom: 6px;
+  top: 6px;
   z-index: 30;
   width: 262px;
   max-height: 440px;
