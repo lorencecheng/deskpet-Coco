@@ -326,9 +326,25 @@ body.ui-open #pet {
   transition: background 0.15s ease;
 }
 .menu-group-body button:hover { background: var(--accent-strong); }
+/* 退出按钮：独立一行，弱化靠下，避免误触 */
+.menu-quit {
+  width: 100%;
+  margin-top: 8px;
+  border: 1px solid rgba(255, 120, 80, 0.35);
+  background: rgba(255, 120, 80, 0.12);
+  color: #ffc9b8;
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+  padding: 5px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.menu-quit:hover { background: rgba(255, 120, 80, 0.35); color: #fff; }
 
-/* ===== 通用面板卡片（皮肤工坊 / AI 设置 / 问问 Coco 共用底座） ===== */
-#skinPanel, #aiPanel, #photoPanel {
+/* ===== 通用面板卡片（皮肤工坊 / 拍照 / 背包 / 相册共用底座） ===== */
+#skinPanel, #photoPanel, #bagPanel, #albumPanel {
   position: absolute;
   left: 6px;
   top: 6px;
@@ -341,7 +357,7 @@ body.ui-open #pet {
   box-shadow: var(--shadow);
   color: var(--txt);
 }
-#skinPanel[hidden], #aiPanel[hidden], #photoPanel[hidden] { display: none; }
+#skinPanel[hidden], #photoPanel[hidden], #bagPanel[hidden], #albumPanel[hidden] { display: none; }
 .skin-title {
   font-size: 14px;
   font-weight: 700;
@@ -469,21 +485,6 @@ button.photo-take:hover { filter: brightness(1.08); }
   font-family: inherit; outline: none;
 }
 .skin-row textarea:focus { border-color: var(--accent); }
-.ai-toggle { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--txt); cursor: pointer; }
-.skin-row button.ai-wizard {
-  flex: 1;
-  border: 1px solid rgba(120, 220, 160, 0.6);
-  background: rgba(90, 200, 140, 0.25);
-  color: #eafff3;
-}
-.skin-row button.ai-wizard:hover { background: rgba(90, 200, 140, 0.45); }
-.skin-row button.ai-local {
-  flex: 1;
-  border: 1px solid rgba(120, 180, 240, 0.6);
-  background: rgba(90, 150, 220, 0.25);
-  color: #eaf3ff;
-}
-.skin-row button.ai-local:hover { background: rgba(90, 150, 220, 0.45); }
 #skinClose {
   width: 100%;
   border: none;
@@ -637,190 +638,7 @@ button.photo-take:hover { filter: brightness(1.08); }
   transition: width 0.5s ease, background 0.5s ease;
 }
 
-/* ---- 问问 Coco：羁绊助理聊天面板（暖橘像素感，和整体皮肤一致） ---- */
-#assistPanel {
-  position: absolute;
-  left: 6px;
-  top: 6px;
-  z-index: 30;
-  width: 262px;
-  max-height: 440px;
-  display: flex;
-  flex-direction: column;
-  background: var(--panel-grad);
-  border: 1px solid var(--panel-line);
-  border-radius: var(--r-lg);
-  padding: 10px;
-  box-shadow: var(--shadow);
-  color: var(--txt);
-}
-#assistPanel[hidden] { display: none; }
-.assist-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 7px;
-}
-.assist-title {
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 0.3px;
-  background: linear-gradient(90deg, #ffd9a0, #ffb36b);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-.assist-close {
-  border: none;
-  background: rgba(255, 255, 255, 0.08);
-  color: #ffd9b0;
-  font-size: 12px;
-  line-height: 1;
-  border-radius: 6px;
-  width: 20px;
-  height: 20px;
-  cursor: pointer;
-}
-.assist-close:hover { background: rgba(255, 120, 80, 0.4); }
-.assist-badge {
-  font-size: 10.5px;
-  color: #ffe3bf;
-  background: rgba(255, 170, 90, 0.16);
-  border: 1px solid rgba(255, 190, 120, 0.3);
-  border-radius: 8px;
-  padding: 4px 8px;
-  margin-bottom: 7px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.assist-badge b { color: #ffd9a0; }
-.assist-name-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 7px;
-}
-.assist-name-label {
-  font-size: 11px;
-  color: #ffe3bf;
-  flex-shrink: 0;
-}
-.assist-name-row input {
-  flex: 1;
-  min-width: 0;
-  background: rgba(0, 0, 0, 0.3);
-  color: #fff3e6;
-  border: 1px solid rgba(255, 200, 150, 0.3);
-  border-radius: 7px;
-  padding: 3px 7px;
-  font-size: 11px;
-  outline: none;
-}
-.assist-name-row input:focus { border-color: rgba(255, 170, 90, 0.7); }
-.assist-name-row input::placeholder { color: rgba(255, 227, 191, 0.4); }
-.assist-clear {
-  border: none;
-  background: rgba(255, 255, 255, 0.08);
-  color: #ffd9b0;
-  border-radius: 6px;
-  width: 20px;
-  height: 20px;
-  font-size: 11px;
-  cursor: pointer;
-  flex-shrink: 0;
-}
-.assist-clear:hover { background: rgba(255, 120, 80, 0.4); }
-.assist-log {
-  flex: 1;
-  min-height: 120px;
-  max-height: 240px;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 4px 2px;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255, 190, 120, 0.4) transparent;
-}
-.assist-msg {
-  max-width: 86%;
-  padding: 5px 9px;
-  border-radius: 11px;
-  font-size: 12px;
-  line-height: 1.5;
-  word-break: break-word;
-}
-.assist-msg.user {
-  align-self: flex-end;
-  background: linear-gradient(150deg, rgba(255, 165, 90, 0.9), rgba(240, 130, 60, 0.9));
-  color: #2a1a0e;
-  border-bottom-right-radius: 4px;
-}
-.assist-msg.coco {
-  align-self: flex-start;
-  background: rgba(255, 235, 205, 0.1);
-  border: 1px solid rgba(255, 200, 150, 0.25);
-  color: #fff3e6;
-  border-bottom-left-radius: 4px;
-}
-.assist-msg.coco.thinking { opacity: 0.65; font-style: italic; }
-.assist-input-row {
-  display: flex;
-  gap: 6px;
-  margin-top: 8px;
-}
-.assist-input-row input {
-  flex: 1;
-  min-width: 0;
-  background: rgba(0, 0, 0, 0.3);
-  color: #fff3e6;
-  border: 1px solid rgba(255, 200, 150, 0.3);
-  border-radius: 9px;
-  padding: 6px 9px;
-  font-size: 12px;
-  outline: none;
-}
-.assist-input-row input:focus { border-color: rgba(255, 170, 90, 0.7); box-shadow: 0 0 0 2px rgba(255, 170, 90, 0.15); }
-.assist-input-row input::placeholder { color: rgba(255, 227, 191, 0.45); }
-.assist-input-row button {
-  border: none;
-  background: linear-gradient(150deg, #ff9a4d, #ff7a33);
-  color: #2a1a0e;
-  font-weight: 700;
-  font-size: 12px;
-  border-radius: 9px;
-  padding: 0 13px;
-  cursor: pointer;
-}
-.assist-input-row button:hover { filter: brightness(1.1); }
-.assist-input-row button:disabled { background: rgba(255, 170, 90, 0.4); cursor: default; }
-.assist-hint {
-  font-size: 9.5px;
-  color: rgba(255, 227, 191, 0.55);
-  margin-top: 6px;
-  text-align: center;
-}
-
-
-/* ===== 可穿戴配饰层 ===== */
-#accessory {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 8;
-}
-
-/* ===== 背包 / 商店 / 相册 / 小游戏 ===== */
-.coin-line {
-  color: var(--gold);
-  font-size: 13px;
-  font-weight: 700;
-  margin: 8px 2px 10px;
-  display: flex;
-  gap: 4px;
-  align-items: center;
-}
+/* ===== 背包 / 相册 ===== */
 .inv-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -872,15 +690,3 @@ button.photo-take:hover { filter: brightness(1.08); }
 .album-icon { font-size: 20px; }
 .album-title { color: var(--txt); font-size: 10.5px; font-weight: 700; }
 .album-date { color: var(--txt-soft); font-size: 9px; }
-
-/* 接毛线球小游戏 */
-#gameCanvas {
-  width: 100%;
-  max-width: 300px;
-  border-radius: var(--r-md);
-  border: 1px solid var(--panel-line-soft);
-  background: #2d2016;
-  display: block;
-  margin: 4px auto;
-  cursor: crosshair;
-}

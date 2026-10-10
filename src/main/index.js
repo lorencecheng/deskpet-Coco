@@ -5,10 +5,6 @@
 const { app, BrowserWindow, Tray, Menu, ipcMain, screen, nativeImage, shell, powerMonitor, clipboard } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const { spawn } = require('child_process');
-const net = require('net');
-const https = require('https');
-const http = require('http');
 
 // 高 DPI 支持：像素精确、精灵不模糊（透明置顶小窗尤其需要）
 app.commandLine.appendSwitch('high-dpi-support', '1');
@@ -51,14 +47,11 @@ let hiddenMode = null;      // null | 'left' | 'right'
 let peekTimer = null;
 let peekAnim = null;
 
-// 小助理状态：久坐提醒 / 天气预警提醒
+// 小助理状态：久坐提醒
 let sitReminderOn = true;
 let sitThresholdMin = 60;
 let sitActiveMin = 0;
 let sitTimer = null;
-let weatherReminderOn = true;
-let weatherTimer = null;
-let lastWeatherAlert = null;
 
 /** 获取窗口当前所在显示器的工作区（多显示器适配：窗口钳在它所在屏内，不跨屏飘走） */
 function currentWorkArea() {
@@ -87,20 +80,6 @@ function keepInBounds() {
 
 // ---- 外观 / 行为设置：尺寸、透明度、全屏隐藏、边缘吸附（跨启动记住） ----
 const PREFS_FILE = path.join(app.getPath('userData'), 'prefs.json');
-
-// ---- AI 大脑配置（可选）：本地 llama.cpp 或任意 OpenAI 兼容 API ----
-// 默认关闭：不开 AI 时完全不联网，走原有本地性格行为池；开了才发请求，失败自动降级回本地。
-let aiConfig = {
-  enabled: false,
-  backend: 'online',       // 'online'（在线 API） | 'local'（本地 llama.cpp server）
-  baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',  // 默认预填通义千问兼容接口（国内可用）
-  apiKey: '',
-  model: 'qwen-turbo',
-  temperature: 0.8,
-  maxTokens: 80,
-  cooldownMs: 15000,       // 最小调用间隔，防刷 token
-  systemPrompt: '你是桌面像素胖橘猫 Coco，性格慵懒、有点贱、腹黑但不恶毒，不爱过度热情。说话要简短，一句话，15 字以内，口语化，不要用 markdown，不要解释。'
-};
 function loadPrefs() {
   try {
     if (fs.existsSync(PREFS_FILE)) {
@@ -111,8 +90,6 @@ function loadPrefs() {
       if (typeof d.edgeSnapOn === 'boolean') edgeSnapOn = d.edgeSnapOn;
       if (typeof d.sitReminderOn === 'boolean') sitReminderOn = d.sitReminderOn;
       if (Number.isFinite(d.sitThresholdMin)) sitThresholdMin = d.sitThresholdMin;
-      if (typeof d.weatherReminderOn === 'boolean') weatherReminderOn = d.weatherReminderOn;
-      if (d.aiConfig && typeof d.aiConfig === 'object') Object.assign(aiConfig, d.aiConfig);
     }
   } catch {}
   petW = Math.max(120, Math.round(256 * petSize));
@@ -123,115 +100,10 @@ function savePrefs() {
     fs.writeFileSync(PREFS_FILE, JSON.stringify({
       size: petSize, opacity: petOpacity,
       fullscreenHideOn, edgeSnapOn,
-      sitReminderOn, sitThresholdMin, weatherReminderOn,
-      aiConfig
+      sitReminderOn, sitThresholdMin
     }, null, 2));
   } catch {}
 }
-/** 向 OpenAI 兼容端点发一次对话，返回文本；失败/超时/禁用都返回 null（渲染端负责降级） */
-async function aiChat(messages) {
-  if (!aiConfig.enabled) return null;
-  const base = (aiConfig.baseUrl || '').trim().replace(/\/+$/, '');
-  if (!base) return null;
-  try {
-    const resp = await fetch(`${base}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${aiConfig.apiKey || ''}`
-      },
-      body: JSON.stringify({
-        model: aiConfig.model,
-        messages,
-        temperature: aiConfig.temperature,
-        max_tokens: aiConfig.maxTokens
-      }),
-      signal: AbortSignal.timeout(15000)
-    });
-    if (!resp.ok) return null;
-    const data = await resp.json();
-    const t = data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
-    return typeof t === 'string' ? t.trim() : null;
-  } catch {
-    return null;
-  }
-}
-
-// ===================== 本地模型（离线 · 免配置） =====================
-// 把轻量 llama.cpp 模型 + 运行程序放到 userData/local-ai 里（可用 scripts/fetch-local-model.ps1
-// 一键下载），应用会自动启动它，用户不用配任何 API。找不到模型就提示，不影响在线模式。
-const LOCAL_AI_DIR = () => path.join(app.getPath('userData'), 'local-ai');
-const LOCAL_PORT = 8080;
-let localServerChild = null;
-
-/** 扫描本地模型目录，返回 { exe, gguf }；没有完整可用的本地模型就返回 null */
-function localModelFiles() {
-  try {
-    // 兼容安装版（userData 可写）与开发版（仓库 models/llama）两种布局
-    const appData = app.getPath('appData'); // Windows 上即 %APPDATA%
-    const dirs = [
-      LOCAL_AI_DIR(),
-      path.join(appData, 'DeskPet Coco', 'local-ai'),
-      path.join(appData, 'deskpet-coco', 'local-ai'),
-      path.join(__dirname, '..', '..', 'models', 'llama')
-    ];
-    const files = [];
-    for (const dir of dirs) {
-      if (!fs.existsSync(dir)) continue;
-      const walk = (d) => {
-        for (const f of fs.readdirSync(d, { withFileTypes: true })) {
-          const p = path.join(d, f.name);
-          if (f.isDirectory()) walk(p);
-          else files.push(p);
-        }
-      };
-      walk(dir);
-    }
-    const exe = files.find((p) => /llama-server\.(exe|bin)$/i.test(p) || /[\\/]llama-server$/.test(p));
-    const gguf = files.find((p) => /\.gguf$/i.test(p));
-    return exe && gguf ? { exe, gguf } : null;
-  } catch { return null; }
-}
-
-/** 检测本地端口是否已被服务占用 */
-function isPortOpen(port, ms = 1500) {
-  return new Promise((resolve) => {
-    const c = net.connect({ host: '127.0.0.1', port });
-    const to = setTimeout(() => { try { c.destroy(); } catch {} resolve(false); }, ms);
-    c.on('connect', () => { clearTimeout(to); try { c.destroy(); } catch {} resolve(true); });
-    c.on('error', () => { clearTimeout(to); resolve(false); });
-  });
-}
-function setLocalBase() {
-  aiConfig.backend = 'local';
-  aiConfig.baseUrl = `http://127.0.0.1:${LOCAL_PORT}/v1`;
-  savePrefs();
-}
-function stopLocalServer() {
-  if (localServerChild) { try { localServerChild.kill(); } catch {} localServerChild = null; }
-}
-/** 启动本地模型：端口空闲则拉起 llama-server；已在跑则直接用 */
-async function startLocalServer() {
-  if (await isPortOpen(LOCAL_PORT)) { setLocalBase(); return { ok: true, port: LOCAL_PORT, spawned: false }; }
-  const files = localModelFiles();
-  if (!files) return { ok: false, reason: 'no-model' };
-  try {
-    localServerChild = spawn(files.exe, ['--model', files.gguf, '--port', String(LOCAL_PORT)], { windowsHide: true });
-    localServerChild.on('error', () => { localServerChild = null; });
-    if (localServerChild.stdout) localServerChild.stdout.on('data', () => {});
-    if (localServerChild.stderr) localServerChild.stderr.on('data', () => {});
-  } catch { return { ok: false, reason: 'spawn-fail' }; }
-  const t0 = Date.now();
-  while (Date.now() - t0 < 60000) {
-    if (await isPortOpen(LOCAL_PORT)) { setLocalBase(); return { ok: true, port: LOCAL_PORT, spawned: true }; }
-    await new Promise((r) => setTimeout(r, 1000));
-  }
-  stopLocalServer();
-  return { ok: false, reason: 'timeout' };
-}
-
-// 退出时回收本地模型进程
-app.on('before-quit', () => { stopLocalServer(); });
 
 function applySize(s) {
   petSize = s;
@@ -562,7 +434,6 @@ function createTray() {
         { label: '90 分钟', type: 'radio', checked: sitThresholdMin === 90, click: () => setSitThreshold(90) }
       ]
     },
-    { label: '🌦 天气预警提醒', type: 'checkbox', checked: weatherReminderOn, click: (mi) => { weatherReminderOn = mi.checked; savePrefs(); } },
     { type: 'separator' },
     { label: '🎛️ 外观与窗口', enabled: false },
     {
@@ -723,149 +594,7 @@ function registerIpc() {
   function startSitMonitor() { stopSitMonitor(); sitTimer = setInterval(sitTick, 60000); }
   function stopSitMonitor() { if (sitTimer) { clearInterval(sitTimer); sitTimer = null; } }
 
-  // ---- 小助理：天气预警提醒（IP 定位 + Open-Meteo 免费接口） ----
-  const SEVERE_CODES = [
-    { code: 95, label: '雷暴' }, { code: 96, label: '雷暴' }, { code: 99, label: '强雷暴(伴冰雹)' },
-    { code: 65, label: '大雨' }, { code: 82, label: '强降雨' },
-    { code: 75, label: '大雪' }, { code: 77, label: '大雪' },
-    { code: 66, label: '冻雨' }, { code: 67, label: '冻雨' },
-    { code: 45, label: '大雾' }, { code: 48, label: '浓雾' }
-  ];
-  // 免费 IP 定位：优先 ipinfo，失败回退 ip-api
-  async function getGeo() {
-    try {
-      const r = await fetch('https://ipinfo.io/json', { signal: AbortSignal.timeout(6000) });
-      const j = await r.json();
-      const [lat, lon] = (j.loc || '').split(',').map(Number);
-      if (Number.isFinite(lat) && Number.isFinite(lon)) {
-        return { lat, lon, city: (j.city || j.region || '你所在地区').toString() };
-      }
-    } catch { /* fallthrough */ }
-    try {
-      const r = await fetch('http://ip-api.com/json/', { signal: AbortSignal.timeout(6000) });
-      const j = await r.json();
-      if (j.status === 'success' && Number.isFinite(Number(j.lat)) && Number.isFinite(Number(j.lon))) {
-        return { lat: Number(j.lat), lon: Number(j.lon), city: (j.city || '你所在地区').toString() };
-      }
-    } catch { /* fallthrough */ }
-    throw new Error('geo-fail');
-  }
-  async function weatherTick(force) {
-    // force=true 表示用户手动查询（即使预警提醒关闭也返回当前天气）
-    if (!weatherReminderOn && !force) return;
-    if (!win || win.isDestroyed()) return;
-    try {
-      // 1) IP 粗略定位所在地区
-      const geo = await getGeo();
-      const lat = geo.lat;
-      const lon = geo.lon;
-      const city = geo.city;
-
-      // 2) 获取未来 24h 逐小时天气码与温度
-      const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=weather_code,temperature_2m&forecast_days=1&timezone=auto`;
-      const wxRes = await fetch(url, { signal: AbortSignal.timeout(9000) });
-      const data = await wxRes.json();
-      const codes = (data.hourly && data.hourly.weather_code) || [];
-      const temps = (data.hourly && data.hourly.temperature_2m) || [];
-      if (codes.length === 0) throw new Error('wx-empty');
-
-      // 定位当前小时下标
-      const times = (data.hourly && data.hourly.time) || [];
-      let hourIdx = 0;
-      const nowMs = Date.now();
-      for (let i = 0; i < times.length; i++) {
-        if (new Date(times[i]).getTime() <= nowMs) hourIdx = i;
-      }
-
-      // 3) 扫描未来 6 小时是否有严重天气（区分普通预警与强预警）
-      let alert = null;
-      let severe = false;
-      const lookAhead = Math.min(hourIdx + 6, codes.length);
-      for (let i = hourIdx; i < lookAhead; i++) {
-        const c = codes[i];
-        const hit = SEVERE_CODES.find((s) => s.code === c);
-        if (hit) {
-          if (!alert) alert = hit;
-          if (c === 99 || c === 82 || c === 65 || c === 75 || c === 77 || c === 67) severe = true;
-        }
-      }
-
-      // 4) 极端温度提醒
-      let maxTemp = null;
-      for (let i = hourIdx; i < lookAhead; i++) if (Number.isFinite(temps[i])) maxTemp = Math.max(maxTemp || -Infinity, temps[i]);
-      let tempAlert = null;
-      if (maxTemp !== null && maxTemp >= 35) tempAlert = `高温 ${Math.round(maxTemp)}°C`;
-      else if (maxTemp !== null && maxTemp <= -5) tempAlert = `低温 ${Math.round(maxTemp)}°C`;
-
-      const currentTemp = Number.isFinite(temps[hourIdx]) ? Math.round(temps[hourIdx]) : null;
-      const currentCode = codes[hourIdx];
-      const curLabel = codeLabel(currentCode);
-
-      if (force) {
-        // 手动查询：直接返回当前天气概况 + 如有预警一并提示
-        let msg = `🌤 现在（${city}）：${currentTemp !== null ? currentTemp + '°C' : '--'}，${curLabel}`;
-        if (alert) msg += `；未来几小时可能有${alert.label}，注意安全~`;
-        else if (tempAlert) msg += `；未来几小时有${tempAlert}，注意防暑/保暖~`;
-        if (win && !win.isDestroyed()) win.webContents.send('pet:remind', msg);
-        return;
-      }
-
-      const key = alert ? `code-${alert.code}` : (tempAlert ? tempAlert : null);
-      if (key && key !== lastWeatherAlert) {
-        lastWeatherAlert = key;
-        sendAction('lookaround');
-        const emoji = severe ? '⚠️' : '🌦';
-        const msg = alert
-          ? `${emoji} 天气提醒（${city}）：未来几小时可能有${alert.label}，出门记得带伞、注意安全哦~`
-          : `🌡 天气提醒（${city}）：未来几小时有${tempAlert}，注意防暑/保暖哦~`;
-        if (win && !win.isDestroyed()) win.webContents.send('pet:remind', msg);
-      }
-    } catch {
-      // 网络/定位失败：静默，下个周期重试；手动查询失败也提示用户
-      if (force && win && !win.isDestroyed()) win.webContents.send('pet:remind', '喵……天气查不到，可能断网啦~ 🌐');
-    }
-  }
-  function codeLabel(c) {
-    const s = SEVERE_CODES.find((x) => x.code === c);
-    if (s) return s.label;
-    const map = { 0: '晴', 1: '基本晴朗', 2: '局部多云', 3: '多云', 45: '大雾', 51: '毛毛雨', 61: '小雨', 63: '中雨', 65: '大雨', 80: '阵雨', 81: '强阵雨' };
-    return map[c] || '多云';
-  }
-  function startWeatherMonitor() { stopWeatherMonitor(); weatherTick(); weatherTimer = setInterval(weatherTick, 30 * 60 * 1000); }
-  function stopWeatherMonitor() { if (weatherTimer) { clearInterval(weatherTimer); weatherTimer = null; } }
-
   startSitMonitor();     // 久坐提醒（窗口未就绪时自动跳过）
-  startWeatherMonitor(); // 天气预警提醒（失败静默重试）
-
-  // 手动查天气：渲染进程点「查看天气」→ 立即返回当前天气概况
-  ipcMain.on('pet:weather-check', () => { weatherTick(true); });
-
-  // ---- AI 大脑：配置读写与对话（OpenAI 兼容端点） ----
-  ipcMain.handle('ai:get-config', () => aiConfig);
-  ipcMain.on('ai:save-config', (_e, cfg) => {
-    if (cfg && typeof cfg === 'object') { Object.assign(aiConfig, cfg); savePrefs(); }
-  });
-  ipcMain.handle('ai:chat', async (_e, messages) => {
-    const text = await aiChat(Array.isArray(messages) ? messages : []);
-    if (text === null) return { ok: false, text: '' };
-    return { ok: true, text };
-  });
-  // 用系统默认浏览器打开外部链接（仅限 http/https，用于"免费开通"向导跳转）
-  ipcMain.on('pet:open-external', (_e, url) => {
-    if (typeof url === 'string' && /^https?:\/\//i.test(url)) shell.openExternal(url);
-  });
-
-  // ---- 本地模型（离线 · 免配置）：状态查询 / 一键启动 / 停止 ----
-  ipcMain.handle('ai:local-status', async () => {
-    const files = localModelFiles();
-    return {
-      hasModel: !!files,
-      model: files ? path.basename(files.gguf) : null,
-      running: await isPortOpen(LOCAL_PORT)
-    };
-  });
-  ipcMain.handle('ai:local-start', async () => startLocalServer());
-  ipcMain.on('ai:local-stop', () => stopLocalServer());
 
   // 拖动宠物：用光标位置增量移动窗口
   ipcMain.on('pet:drag-start', () => {

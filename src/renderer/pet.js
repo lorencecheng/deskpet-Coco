@@ -24,7 +24,6 @@
     lookaround:  { duration: 2200, cls: 'pet-lookaround', fps: 2 },
     groom:       { duration: 3400, cls: 'pet-groom', fps: 2 },   // 洗脸舔爪
     yawn:        { duration: 2800, cls: 'pet-yawn', fps: 2 },    // 打哈欠犯困
-    drink:       { duration: 5200, cls: 'pet-drink', fps: 2 },
     yarn:        { duration: 4500, cls: 'pet-yarn', fps: 3 },
     chase:       { duration: null, cls: 'pet-chase', sprite: 'walk', fps: 5 },
     happy:       { duration: 2000, cls: 'pet-happy', fps: 2 },
@@ -76,7 +75,6 @@
   // preload 桥；在纯浏览器调试时退化为空实现，避免报错
   const api = window.coco || {
     onAction() { return () => {}; },
-    triggerAction() {},
     dragStart() {}, dragMove() {}, dragEnd() {},
     chase() {}, stopChase() {}, onChaseDone() { return () => {}; },
     dotChase() {}, onDotChaseDone() { return () => {}; },
@@ -84,11 +82,7 @@
     menuResize() {}, panelResize() {},
     getPathForFile() { return ''; }, eatFile() {}, onEatResult() { return () => {}; },
     onRemind() { return () => {}; },
-    clipboardWrite() {}, clipboardRead() { return ''; }, readSprite() { return null; },
-    checkWeather() {}, aiGetConfig() { return Promise.resolve(null); },
-    aiSaveConfig() {}, aiChat() { return Promise.resolve({ ok: false, text: '' }); },
-    openExternal() {}, aiLocalStatus() { return Promise.resolve(null); },
-    aiLocalStart() { return Promise.resolve({ ok: false }); }
+    clipboardWrite() {}, clipboardRead() { return ''; }, readSprite() { return null; }
   };
 
   // ---- 精灵帧加载与缓存（服装感知：穿衣状态下，被服装覆盖的状态优先读服装精灵）----
@@ -206,40 +200,28 @@
   // ---- 随机自主行为：待机时猫自己会"做点事"，按心情/饱食/精力 + 性格加权；AI 开启时由 AI 自主挑动作+吐槽 ----
   let idleLoopTimer = null;
   // 性格系统：每只猫随机一个性格，影响"待机干什么、台词基调、粘不粘人"（本地持久化，重启不变）
+  // 只保留差异最鲜明的 3 种：粘人 / 高冷 / 慵懒（删掉辨识度低的好动、吃货）
   const PERSONALITIES = {
     clingy:   { name: '粘人',   icon: '🫂',  desc: '总想凑到你旁边~',
       weight: { play: 1, bounce: 1, lookaround: 1, groom: 0, sulk: -2, yawn: 0 } },
     aloof:    { name: '高冷',   icon: '🧊',  desc: '不轻易讨好你~',
       weight: { play: -2, bounce: -2, lookaround: 0, yawn: 1, doze: 1, groom: 0 } },
-    energetic:{ name: '好动',   icon: '⚡',  desc: '一刻也闲不住~',
-      weight: { play: 2, bounce: 2, scratch: 1, yawn: -1, doze: -1, stretch: 1 } },
-    lazy:     { name: '懒猫',   icon: '😴',  desc: '能躺着绝不坐着~',
-      weight: { yawn: 2, doze: 2, stretch: 1, play: -2, bounce: -1, scratch: 0 } },
-    foodie:   { name: '吃货',   icon: '🍝',  desc: '为了一口吃的能卖萌~',
-      weight: { knockbowl: 2, play: 1, groom: 0, yawn: 0, bounce: 1 } }
+    lazy:     { name: '慵懒',   icon: '😴',  desc: '能躺着绝不坐着~',
+      weight: { yawn: 2, doze: 2, stretch: 1, play: -2, bounce: -1, scratch: 0 } }
   };
   let personality = 'clingy';
   function loadPersonality() {
     try {
       const p = localStorage.getItem('coco.personality');
       if (p && PERSONALITIES[p]) personality = p;
-      else { // 首次：随机性格（好动/懒猫略多，更出彩）
-        const keys = ['clingy', 'aloof', 'energetic', 'energetic', 'lazy', 'lazy', 'foodie', 'foodie'];
+      else { // 首次：随机性格（慵懒略多，更出彩）
+        const keys = ['clingy', 'aloof', 'lazy', 'lazy'];
         personality = keys[(Math.random() * keys.length) | 0];
         try { localStorage.setItem('coco.personality', personality); } catch {}
       }
     } catch { personality = 'clingy'; }
   }
   const PERS = () => PERSONALITIES[personality];
-  // 性格药剂：重新随机一个性格（道具触发），持久化并刷新界面
-  function rerollPersonality() {
-    const keys = Object.keys(PERSONALITIES);
-    personality = keys[(Math.random() * keys.length) | 0];
-    try { localStorage.setItem('coco.personality', personality); } catch {}
-    if (typeof updatePanel === 'function') updatePanel();
-    showBubble(`🧪 性格变了！现在我是${PERS().icon}${PERS().name}猫（${PERS().desc}）`, 3200);
-    return personality;
-  }
   // 昼夜真实时间联动：读取系统时间，夜晚更困、白天更活泼，睡眠恢复精力（夜晚恢复更快）
   function dayNight() {
     const h = new Date().getHours();
@@ -326,14 +308,10 @@
         const busy = mood < 35 ? 0.28 : (mood > 65 ? 0.65 : 0.45);
         const roll = Math.random();
         if (roll < busy) {
-          // AI 开启时，让它自己挑个动作+吐槽一句（自主思考）；失败再回本地随机自主行为
-          maybeAiLine('我正闲着发呆，想点心事').then((usedAi) => {
-            if (!usedAi && currentState === 'idle') {
-              const b = pickAutoBehavior();
-              if (b) playAutoBehavior(b);
-              else setState('idle-blink');
-            }
-          });
+          // 待机自主行为：按心情/性格 + 昼夜随机挑一个"自己做的事"
+          const b = pickAutoBehavior();
+          if (b) playAutoBehavior(b);
+          else setState('idle-blink');
         } else {
           setState('idle-blink'); // 安静待机时偶尔眨个眼
         }
@@ -363,19 +341,18 @@
     setTimeout(checkLongIdle, 5000);
   }
 
-  // ---- 需求系统：饱食 / 清洁 / 精力 / 心情 ----
+  // ---- 需求系统：饱食 / 清洁 / 心情（三维可见）----
+  // 精力隐藏为内部属性：只影响行为（困了想睡、玩闹消耗），不在面板/气泡里当进度条打扰玩家。
   const NEED_DEFS = {
     hunger: { label: '饱食', icon: '🍝', threshold: 35, decay: 1.1,
       hints: ['我饿啦~ 想吃意大利宽面~', '肚子咕咕叫，给我来碗面嘛~', '好饿……面条在哪里呀~'] },
     clean:  { label: '清洁', icon: '🛁', threshold: 35, decay: 0.9,
       hints: ['身上脏脏的~ 想洗个泡泡浴~', '我该洗澡啦，泡泡澡最舒服~', '毛都打结了，帮我洗香香~'] },
-    energy: { label: '精力', icon: '😴', threshold: 30, decay: 0.6,
-      hints: ['好困呀~ 想蜷起来睡一觉~', '眼皮好重……让我眯一会儿~', '累啦，先睡一觉补补能量~'] },
     mood:   { label: '心情', icon: '🎈', threshold: 40, decay: 1.6,
       hints: ['好无聊呀~ 陪我玩嘛~', '一个人待着好没劲，来逗逗我~', '我超想追着你的光标跑！'] }
   };
   let needs = { hunger: 100, clean: 100, energy: 100, mood: 100 };
-  // 单机养成：把四维状态存到本地，重启后继续（长时间不理就会掉）
+  // 单机养成：把三维状态存到本地，重启后继续（长时间不理就会掉）
   function saveNeeds() {
     try { localStorage.setItem('coco.needs', JSON.stringify(needs)); } catch {}
   }
@@ -386,10 +363,11 @@
         for (const k of Object.keys(NEED_DEFS)) {
           if (Number.isFinite(n[k])) needs[k] = Math.max(0, Math.min(100, n[k]));
         }
+        if (Number.isFinite(n.energy)) needs.energy = Math.max(0, Math.min(100, n.energy));
       }
     } catch {}
   }
-  const lastHintAt = { hunger: 0, clean: 0, energy: 0, mood: 0 };
+  const lastHintAt = { hunger: 0, clean: 0, mood: 0 };
   let bubbleTimer = null;
 
   function showBubble(text, ms) {
@@ -726,8 +704,6 @@
   function openPhotoPanel() {
     hideMenu();
     if (!skinPanel.hidden) closeSkinPanel();
-    if (!aiPanel.hidden) closeAiPanel();
-    if (!assistPanel.hidden) closeAssistPanel();
     updatePhotoPoseHint();
     photoPanel.hidden = false;
     setUiOpen(true);
@@ -836,198 +812,6 @@
   document.getElementById('photoBack').addEventListener('click', () => { setState('idle'); });
   document.getElementById('photoClose').addEventListener('click', closePhotoPanel);
 
-  // ---- AI 大脑面板 ----
-  function openAiPanel() {
-    hideMenu();
-    if (!skinPanel.hidden) closeSkinPanel();
-    aiEnabled.checked = !!aiConfig.enabled;
-    aiBackend.value = aiConfig.backend || 'online';
-    aiBaseUrl.value = aiConfig.baseUrl || '';
-    aiKey.value = aiConfig.apiKey || '';
-    aiModel.value = aiConfig.model || 'qwen-turbo';
-    aiPrompt.value = aiConfig.systemPrompt || '';
-    aiCooldown.value = String(aiConfig.cooldownMs || 15000);
-    aiPanel.hidden = false;
-    setUiOpen(true);
-    api.panelResize(true);
-  }
-  function closeAiPanel() {
-    aiPanel.hidden = true;
-    setUiOpen(false);
-    api.panelResize(false);
-  }
-  function saveAiConfig() {
-    aiConfig.enabled = aiEnabled.checked;
-    aiConfig.backend = aiBackend.value;
-    aiConfig.baseUrl = aiBaseUrl.value.trim();
-    aiConfig.apiKey = aiKey.value.trim();
-    aiConfig.model = aiModel.value.trim() || 'qwen-turbo';
-    aiConfig.systemPrompt = aiPrompt.value.trim();
-    aiConfig.cooldownMs = parseInt(aiCooldown.value, 10) || 15000;
-    api.aiSaveConfig(aiConfig);
-    showBubble(aiConfig.enabled ? 'AI 大脑已开启，我要开始嘴欠啦~ 🧠' : '已关闭 AI，回到本地乖乖模式~', 3200);
-  }
-  const aiEnabled = document.getElementById('aiEnabled');
-  const aiBackend = document.getElementById('aiBackend');
-  const aiBaseUrl = document.getElementById('aiBaseUrl');
-  const aiKey = document.getElementById('aiKey');
-  const aiModel = document.getElementById('aiModel');
-  const aiPrompt = document.getElementById('aiPrompt');
-  const aiCooldown = document.getElementById('aiCooldown');
-  const aiPanel = document.getElementById('aiPanel');
-  document.getElementById('aiSave').addEventListener('click', () => { saveAiConfig(); closeAiPanel(); });
-  document.getElementById('aiClose').addEventListener('click', closeAiPanel);
-  // 免费开通向导：普通用户零配置上手 AI（3 步）
-  document.getElementById('aiWizard').addEventListener('click', () => {
-    api.openExternal('https://bailian.console.aliyun.com/?tab=model');
-    showBubble('第1步：注册/登录通义千问，领免费额度（页面已打开）~', 6000);
-    setTimeout(() => showBubble('第2步：在「API-KEY」菜单点创建，复制那串 Key~', 6000), 6500);
-    setTimeout(() => showBubble('第3步：回到这里把 Key 粘进上面框，点「保存并启用」搞定！', 6000), 13000);
-  });
-  // 本地模型一键启用（离线 · 免配置）：自动启动 + 切到 local 后端
-  document.getElementById('aiLocal').addEventListener('click', () => {
-    api.aiLocalStatus().then((st) => {      if (st && st.hasModel) {
-        showBubble('正在启动本地模型（首次稍慢）……', 3000);
-        api.aiLocalStart().then((r) => {
-          if (r && r.ok) {
-            aiConfig.enabled = true; aiConfig.backend = 'local'; aiConfig.baseUrl = `http://127.0.0.1:${r.port}/v1`;
-            api.aiSaveConfig(aiConfig); closeAiPanel();
-            showBubble('本地模型已就绪，我现在真的会"想"啦~ 🤖💬', 4000);
-          } else {
-            showBubble('本地模型启动失败（可能是 CPU 太慢或缺少依赖），先用免费开通试在线版吧~', 5000);
-          }
-        }).catch(() => { showBubble('本地模型启动失败（可能是 CPU 太慢或缺少依赖），先用免费开通试在线版吧~', 5000); });
-      } else {
-        showBubble('还没装本地模型。点我会打开下载教程：装好一次，以后永久免配置离线用~', 5000);
-        api.openExternal('https://github.com/lorencecheng/deskpet-Coco/blob/main/scripts/README.local-ai.md');
-      }
-    }).catch(() => { showBubble('本地模型状态查不到……可能是主进程还在启动，稍后再试~', 4000); });
-  });
-
-  // ---- 问问 Coco：羁绊越高越得力的小助理（聊天面板） ----
-  const assistPanel = document.getElementById('assistPanel');
-  const assistInput = document.getElementById('assistInput');
-  const assistLog = document.getElementById('assistLog');
-  const assistName = document.getElementById('assistName');
-  let assistLastAt = 0;
-  const ASSIST_COOLDOWN = 20000; // 助理独立冷却，防刷 token / 本地模型算力
-  // 助理多轮记忆：记住最近 4 轮对话（最多 8 条），持久化到本地，重启不丢
-  const ASSIST_HISTORY_KEY = 'coco.assistHistory';
-  let assistHistory = [];
-  function loadAssistHistory() {
-    try { const h = JSON.parse(localStorage.getItem(ASSIST_HISTORY_KEY)); if (Array.isArray(h)) assistHistory = h.slice(-8); } catch {}
-  }
-  function saveAssistHistory() { try { localStorage.setItem(ASSIST_HISTORY_KEY, JSON.stringify(assistHistory.slice(-8))); } catch {} }
-  function pushAssist(role, text) { assistHistory.push({ role, text }); assistHistory = assistHistory.slice(-8); saveAssistHistory(); }
-  function clearAssistHistory() { assistHistory = []; saveAssistHistory(); }
-  loadAssistHistory();
-  function appendAssist(role, text) {
-    const el = document.createElement('div');
-    el.className = 'assist-msg ' + role;
-    el.textContent = text;
-    assistLog.appendChild(el);
-    assistLog.scrollTop = assistLog.scrollHeight;
-    return el;
-  }
-  function updateAssistBadge() {
-    const badge = document.getElementById('assistBadge');
-    if (!badge) return;
-    if (!aiConfig.enabled) { badge.textContent = '⚪ 助理待机 · 先开启 AI 大脑才开口'; return; }
-    if (bond && bond.isEnabled()) {
-      const a = bond.assistantLevelInfo();
-      badge.textContent = `助理 Lv${a.lv} · ${a.name} · ${a.abilities.join('、')}`;
-      badge.title = a.abilities.join('、');
-    } else {
-      badge.textContent = '⚪ 羁绊未开启 · 我懒得动';
-    }
-  }
-  function openAssistPanel() {
-    hideMenu();
-    if (!skinPanel.hidden) closeSkinPanel();
-    if (!aiPanel.hidden) closeAiPanel();
-    if (bond && bond.getName()) assistName.value = bond.getName();
-    updateAssistBadge();
-    assistPanel.hidden = false;
-    setUiOpen(true);
-    api.panelResize(true);
-    setTimeout(() => assistInput.focus(), 60);
-  }
-  function closeAssistPanel() {
-    assistPanel.hidden = true;
-    setUiOpen(false);
-    api.panelResize(false);
-  }
-  function buildAssistantMessages(userText) {
-    const needsText = Object.keys(NEED_DEFS).map((k) => `${NEED_DEFS[k].label}:${Math.round(needs[k])}%`).join('，');
-    let user = `当前猫咪状态：${needsText}。`;
-    if (bond && bond.isEnabled()) {
-      const a = bond.assistantLevelInfo();
-      user += `你和主人的羁绊等级：${a.name}（Lv${a.lv}）。你现在能提供的助理能力：${a.abilities.join('、')}。`;
-    }
-    if (bond && bond.getName()) user += `主人叫「${bond.getName()}」，要用名字称呼他。`;
-    // 注入近期对话，让连续聊天更连贯
-    if (assistHistory.length) {
-      user += `你们最近的对话：\n${assistHistory.map((h) => `${h.role === 'user' ? '主人' : 'Coco'}：${h.text}`).join('\n')}\n`;
-    }
-    user += `如果主人问的能力你没解锁，就懒懒地拒绝、让他先提升羁绊。请只回复一句简短的话（不超过20字），口语化、带点慵懒贱猫味，别用markdown、别解释、别列清单。主人问你：${userText}`;
-    return [
-      { role: 'system', content: aiConfig.systemPrompt || '你是桌面像素胖橘猫Coco，慵懒、有点贱、腹黑但不恶毒，说话简短一句话、15字内、口语化。' },
-      { role: 'user', content: user }
-    ];
-  }
-  function sendAssist() {
-    const text = assistInput.value.trim();
-    if (!text) return;
-    appendAssist('user', text);
-    pushAssist('user', text);
-    assistInput.value = '';
-    assistSend.disabled = true;
-    if (!aiConfig.enabled) {
-      appendAssist('coco', '先到「🧠 AI 设置」开启 AI 大脑，我才能开口帮你呀~');
-      assistSend.disabled = false; return;
-    }
-    if (!bond || !bond.isEnabled()) {
-      appendAssist('coco', '开一下「💞 羁绊系统」嘛，我才有干劲帮你~');
-      assistSend.disabled = false; return;
-    }
-    const now = Date.now();
-    const wait = Math.ceil((ASSIST_COOLDOWN - (now - assistLastAt)) / 1000);
-    if (now - assistLastAt < ASSIST_COOLDOWN) {
-      appendAssist('coco', `我还在消化上一句……再等 ${Math.max(1, wait)} 秒吧~`);
-      assistSend.disabled = false; return;
-    }
-    assistLastAt = now;
-    const think = appendAssist('coco', '……（懒懒地动脑子）');
-    think.classList.add('thinking');
-    api.aiChat(buildAssistantMessages(text)).then((res) => {
-      think.remove();
-      let reply = '哎，脑子短路了……可能是网络或模型问题，稍后再试~';
-      if (res && res.ok && res.text) reply = res.text.trim();
-      appendAssist('coco', reply);
-      pushAssist('coco', reply);
-      assistSend.disabled = false;
-    }).catch(() => {
-      think.remove();
-      appendAssist('coco', '哎，脑子短路了……可能是网络或模型问题，稍后再试~');
-      assistSend.disabled = false;
-    });
-  }
-  const assistSend = document.getElementById('assistSend');
-  document.getElementById('assistClose').addEventListener('click', closeAssistPanel);
-  assistSend.addEventListener('click', sendAssist);
-  assistInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendAssist(); });
-  // 自定义称呼：猫记住你叫什么
-  assistName.addEventListener('change', () => {
-    const n = assistName.value.trim();
-    if (bond) bond.setName(n);
-    if (n) { appendAssist('coco', `记住啦，我叫你「${bond.getName()}」~`); updateAssistBadge(); }
-  });
-  // 清空聊天记忆
-  document.getElementById('assistClear').addEventListener('click', () => {
-    clearAssistHistory();
-    assistLog.innerHTML = '';
-    appendAssist('coco', '好，刚才的话我就当没听见~ 🧹');
-  });
 
   // ---- 羁绊系统（bond.js）：陪伴式养成，刚领养高冷 → 越相处越亲近 ----
   const bond = window.CocoBond;
@@ -1129,7 +913,7 @@
         if (bAbl) {
           const abilities = bond.assistantLevelInfo().abilities;
           bAbl.innerHTML = abilities.map((a) => `<span class="bond-chip hi">✓ ${a}</span>`).join('')
-            || '<span class="bond-chip">继续培养解锁助理能力</span>';
+            || '<span class="bond-chip">继续培养，解锁更多玩法</span>';
         }
         // 性格信息（每只猫随机性格，影响待机行为与台词基调）
         const bPerso = document.getElementById('bondPerso');
@@ -1188,11 +972,6 @@
       '喵~ 你好呀！', '陪着我真开心~', '呼噜呼噜~',
       '（蹭蹭你）见到你就开心~', '今天也要元气满满喵~', '嘿嘿，你对我真好~',
       '尾巴都翘起来啦~', '有你在，心情就up~', '（眯眼撒娇）多陪陪我嘛~', '呼噜声警告，我超开心！'
-    ],
-    drink: [
-      '咖啡暖乎乎的~', '咕嘟咕嘟，好提神！', '工作日的下午茶真棒~',
-      '一口回魂，清醒了~', '（捧着杯子小口喝）优雅~', '咖啡配猫，绝配~',
-      '喝完这杯，陪你继续干活~', '奶香奶香的，是本猫的品味~', '提神醒脑，搬砖猫最爱~', '续命水到位，开工！'
     ],
     scratch: [
       '挠一挠，真舒服~', '啊~ 抓到痒处啦！', '浑身清爽~',
@@ -1254,13 +1033,6 @@
       '亲近': ['（主动凑背）这里这里！', '你挠的，比我自己挠舒服~'],
       '挚友': ['（瘫着享受）一辈子挠猫手~', '挠完再抱抱，全套服务~']
     },
-    drink: {
-      '陌生': ['（端着杯子警惕）……我自己喝。', '咖啡还行。'],
-      '初识': ['你请的咖啡？谢了。', '（小口）还行，不赖。'],
-      '熟悉': ['你的咖啡品味，我认可~', '一起喝一杯？'],
-      '亲近': ['（捧杯凑你）敬你一个~', '你倒的咖啡，格外香~'],
-      '挚友': ['以后咖啡，你泡我喝，说定啦~', '（碰杯）为我们的友情~']
-    },
     fishing: {
       '陌生': ['（独自守着鱼竿）别出声。', '钓鱼是独处的艺术。'],
       '初识': ['（招手）要不要看鱼？', '这水里应该有货。'],
@@ -1291,7 +1063,6 @@
   const REACT_NEEDY = {
     hunger: {
       feed:    ['你终于想起我啦！再来十碗！', '饿到腿软，这碗面救了我~', '早该喂我了，哼~', '（狼吞虎咽）慢点慢点……好吃！', '这顿宽面，值一条命~', '吃撑之前，别想把我叫走~'],
-      drink:   ['咖啡不解饿！我要的是宽面！', '先来碗面，咖啡是甜点！', '（嗅嗅）有面味吗？没有？那我走。'],
       fishing: ['鱼半天不上钩，我都快饿晕了……', '再钓不到鱼，我自己跳水里捉了~', '钓鱼是仪式，吃饱才是真理~']
     },
     clean: {
@@ -1338,60 +1109,6 @@
     return arr[Math.floor(Math.random() * arr.length)];
   }
 
-  // ===================== AI 大脑（可选，慵懒贱猫） =====================
-  // 关闭 AI 时完全离线：所有行为走本地性格池；开启后 AI 生成 {action,text}，
-  // 解析失败/断网/超时都自动降级回本地文案，绝不影响程序运行。
-  let aiConfig = { enabled: false, backend: 'online', baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', apiKey: '', model: 'qwen-turbo', temperature: 0.8, maxTokens: 80, cooldownMs: 15000, systemPrompt: '' };
-  let lastAiAt = 0;
-  // AI 动作名 → 本地状态：让 AI 也能"决定"猫做什么（仅待机时生效，避免打断巡游/追光标）
-  const AI_ACTION_STATES = {
-    blink: 'idle-blink', wash: 'groom', yawn: 'yawn', stretch: 'stretch',
-    ignore: 'idle', stare: 'lookaround', sleep: 'sleep', tease: 'happy',
-    play: 'yarn', knock: 'drop', sulk: 'drop'
-  };
-  function parseAiJson(s) {
-    try {
-      const m = (s || '').match(/\{[\s\S]*\}/);
-      if (!m) return null;
-      const o = JSON.parse(m[0]);
-      if (!o || typeof o.text !== 'string' || !o.text.trim()) return null;
-      return { action: typeof o.action === 'string' ? o.action : 'idle', text: o.text.trim() };
-    } catch { return null; }
-  }
-  function buildAiMessages(eventText, userMsg) {
-    const needsText = Object.keys(NEED_DEFS).map((k) => `${NEED_DEFS[k].label}:${Math.round(needs[k])}%`).join('，');
-    let user = `当前状态：${needsText}。最近事件：${eventText}。`;
-    // 把羁绊等级喂给 AI，让它按"熟不熟"调口吻：陌生就冷淡，挚友才敢嘴欠撒娇
-    if (bond && bond.isEnabled()) {
-      const b = bond.levelInfo();
-      user += `你和主人的羁绊等级：${b.name}（Lv${b.lv}）。`;
-    }
-    // 记住主人起的名字，日常也用它称呼
-    if (bond && bond.getName()) user += `主人叫「${bond.getName()}」，要用名字称呼。`;
-    if (userMsg) user += `用户说：${userMsg}。`;
-    user += ' 请只输出一个JSON，形如 {"action":"blink|wash|yawn|stretch|ignore|stare|sleep|tease|play|knock|sulk","text":"一句话气泡，15字内"}，不要任何多余文字、解释或markdown。';
-    return [
-      { role: 'system', content: aiConfig.systemPrompt || '你是桌面像素胖橘猫Coco，慵懒、有点贱、腹黑但不恶毒，说话简短一句话、15字内、口语化。' },
-      { role: 'user', content: user }
-    ];
-  }
-  /** 尝试让 AI 说一句话（可顺带选动作）。成功返回 true；AI 未开/冷却/失败返回 false。 */
-  async function maybeAiLine(eventText, opts) {
-    opts = opts || {};
-    if (!aiConfig.enabled) return false;
-    const now = Date.now();
-    if (now - lastAiAt < (aiConfig.cooldownMs || 15000)) return false;
-    lastAiAt = now;
-    let res = null;
-    try { res = await api.aiChat(buildAiMessages(eventText, opts.userMsg)); } catch { return false; }
-    if (!res || !res.ok || !res.text) return false;
-    const p = parseAiJson(res.text);
-    if (!p) return false;
-    const canAct = opts.doAction && (currentState === 'idle' || currentState === 'idle-blink');
-    if (canAct && AI_ACTION_STATES[p.action]) setState(AI_ACTION_STATES[p.action]);
-    if (p.text) showBubble(p.text, 4000);
-    return true;
-  }
 
   /** 互动对需求的影响 */
   function applyInteraction(name) {
@@ -1401,7 +1118,6 @@
       case 'yarn':    needs.mood = Math.min(100, needs.mood + 45); needs.energy = Math.max(0, needs.energy - 12); break;
       case 'chase':   needs.mood = Math.min(100, needs.mood + 40); needs.energy = Math.max(0, needs.energy - 15); break;
       case 'happy':   needs.mood = Math.min(100, needs.mood + 10); break;
-      case 'drink':   needs.mood = Math.min(100, needs.mood + 12); needs.energy = Math.min(100, needs.energy + 5); break;
       case 'scratch': needs.mood = Math.min(100, needs.mood + 5); break;
       case 'fishing': needs.mood = Math.min(100, needs.mood + 15); needs.hunger = Math.min(100, needs.hunger + 5); break;
       case 'sleep':   break; // 精力由睡觉期间的 tick 持续恢复
@@ -1410,12 +1126,8 @@
     if (name === 'feed') addBond('feed', 5);
     if (name === 'yarn' || name === 'chase') addBond('play', 3);
     if (name === 'bath') addBond('bath', 2);
-    // AI 开启时优先用 AI 的贱猫台词，失败再回落本地固定文案
-    const evtMap = { feed: '你喂了我意大利宽面', bath: '你帮我洗澡', yarn: '你陪我玩毛线球', chase: '我追着你的光标跑', happy: '你摸了我一下', drink: '你请我喝咖啡', scratch: '你帮我抓痒', fishing: '我在钓鱼', sleep: '我要睡觉了' };
-    const evt = evtMap[name] || name;
-    maybeAiLine(evt, { doAction: true }).then((usedAi) => {
-      if (!usedAi) showBubble(pickReaction(name), 4200);
-    });
+    // 本地性格引擎：按动作 + 心情 + 羁绊口吻吐一句"看脸色"的话（完全离线、有性格）
+    showBubble(pickReaction(name), 4200);
     updateIndicator();
     updatePanel();
     saveNeeds();
@@ -1427,10 +1139,10 @@
     const playing = currentState === 'yarn' || currentState === 'chase';
     // 睡眠恢复精力，夜晚睡得沉恢复更快（昼夜联动）
     if (sleeping) needs.energy = Math.min(100, needs.energy + (dayNight().isNight ? 12 : 8));
+    // 精力是隐藏属性：白天自然消耗、玩闹耗更多、睡觉恢复；不显示进度条但驱动"困了想睡"
+    if (!sleeping) needs.energy = Math.max(0, needs.energy - (playing ? 1.8 : 0.5));
     for (const k of Object.keys(NEED_DEFS)) {
-      let d = NEED_DEFS[k].decay;
-      if (playing && k === 'energy') d += 1.5;
-      needs[k] = Math.max(0, needs[k] - d);
+      needs[k] = Math.max(0, needs[k] - NEED_DEFS[k].decay);
     }
     // 提示最紧急的一项需求（每项冷却 30 秒）
     const now = Date.now();
@@ -1483,8 +1195,6 @@
     if (name === 'quit') { api.quit(); return; }
     if (name === 'skin') { openSkinPanel(); return; }
     if (name === 'photo') { openPhotoPanel(); return; }
-    if (name === 'ai') { openAiPanel(); return; }
-    if (name === 'assist') { openAssistPanel(); return; }
     if (name === 'bond') {
       if (!bond) return;
       const on = !bond.isEnabled();
@@ -1493,7 +1203,6 @@
       updatePanel();
       return;
     }
-    if (name === 'weather') { showBubble('喵？让我看看今天的天气~ ☁️', 2000); api.checkWeather(); return; }
     // walk 由主进程驱动；这里只切换走路动画，避免与主进程双向触发形成循环
     if (name === 'walk') { setState('walk'); return; }
     if (!STATES[name]) return;
@@ -1650,9 +1359,7 @@
       updateIndicator(); updatePanel(); saveNeeds();
       addBond('pet', 3);
       const zoneName = zone === 'head' ? '脑袋' : (zone === 'paw' ? '爪子' : (zone === 'belly' ? '肚子' : '背'));
-      maybeAiLine(`你点了我的${zoneName}`).then((used) => {
-        if (!used) showBubble(ZONE_REACT[zone][Math.floor(Math.random() * ZONE_REACT[zone].length)], 3600);
-      });
+      showBubble(ZONE_REACT[zone][Math.floor(Math.random() * ZONE_REACT[zone].length)], 3600);
       if (zone === 'belly') setState('drop');      // 摸肚子→躺倒翻身
       else setState('happy');
       return;
@@ -1672,14 +1379,12 @@
       showBubble('喵？你一直在看我吗~ 😺', 3000);
     }
   });
-  // 双击：高兴地蹦一下（AI 开启时让它吐槽）
+  // 双击：高兴地蹦一下
   petImg.addEventListener('dblclick', () => {
     if (currentState === 'sleep') setState('idle');
     petImg.classList.add('pet-jump');
     setTimeout(() => petImg.classList.remove('pet-jump'), 620);
-    maybeAiLine('你双击了我').then((usedAi) => {
-      if (!usedAi) showBubble('嘿嘿，跳一下！✨', 2200);
-    });
+    showBubble('嘿嘿，跳一下！✨', 2200);
   });
 
   // ---- 右键动作菜单 ----
@@ -1690,7 +1395,7 @@
   function hideMenu() {
     if (!menu.hidden) { menu.hidden = true; }
     // 菜单关闭时，若没有其他面板打开，再收回窗口
-    if (skinPanel.hidden && photoPanel.hidden && aiPanel.hidden && assistPanel.hidden && needsPanel.hidden) {
+    if (skinPanel.hidden && photoPanel.hidden && needsPanel.hidden) {
       setUiOpen(false);
       api.menuResize(false);
     }
@@ -1802,74 +1507,29 @@
   setState('idle');
   scheduleIdleLoop();
   checkLongIdle();
-  loadNeeds(); // 恢复上次的四维状态（饱食/清洁/精力/心情）
+  loadNeeds(); // 恢复上次的三维状态（饱食/清洁/心情 + 隐藏精力）
   tickNeeds();
-  api.aiGetConfig().then((cfg) => { if (cfg && typeof cfg === 'object') aiConfig = cfg; }).catch(() => {}); // 恢复 AI 配置
   setTimeout(() => {
     const dn = dayNight();
     const greet = dn.isNight
       ? `喵~ 这么晚还在忙？我是${PERS().icon}${PERS().name}猫 Coco（${PERS().desc}），困了就先眯会儿，别熬太晚~`
-      : `喵~ ${dn.phase}好！我是${PERS().icon}${PERS().name}猫 Coco（${PERS().desc}），也是你的桌面小助理：把文件拖到我身上我会帮你放进回收站；坐久了、天气有变我也会提醒你~`;
+      : `喵~ ${dn.phase}好！我是${PERS().icon}${PERS().name}猫 Coco（${PERS().desc}），把文件拖到我身上我会帮你放进回收站；坐久了我也提醒你起来动动~`;
     showBubble(greet);
   }, 2500);
 
-  // ---- 供 inventory.js 调用的能力出口（背包/商店/相册/小游戏/配饰） ----
+  // ---- 供 inventory.js 调用的能力出口（背包 / 钓鱼 / 相册） ----
   // 面板互斥：inventory 打开自己的面板前，关掉 pet 内置面板
   function closeAllPanels() {
     hideMenu();
     if (!skinPanel.hidden) closeSkinPanel();
     if (!photoPanel.hidden) closePhotoPanel();
-    if (!aiPanel.hidden) closeAiPanel();
-    if (!assistPanel.hidden) closeAssistPanel();
     if (!needsPanel.hidden) { needsPanel.hidden = true; setUiOpen(false); api.menuResize(false); }
   }
-  // 可穿戴配饰：像素小配件叠加在猫身上（独立于服装，可自由组合）
-  const ACCESSORIES = {
-    hat:     { emoji: '🎩', pos: 'top:-16px; left:50%; transform:translateX(-50%);', size: '30px' },
-    bow:     { emoji: '🎀', pos: 'top:8px; right:-6px;', size: '22px' },
-    glasses: { emoji: '🕶️', pos: 'top:34px; left:50%; transform:translateX(-50%);', size: '26px' },
-    scarf:   { emoji: '🧣', pos: 'top:56px; left:50%; transform:translateX(-50%);', size: '30px' },
-    helmet:  { emoji: '⛑️', pos: 'top:-14px; left:50%; transform:translateX(-50%);', size: '30px' }
-  };
-  let currentAccessory = null;
-  function applyAccessory(key) {
-    const acc = document.getElementById('accessory');
-    if (!acc) return;
-    acc.innerHTML = '';
-    if (!key || key === 'none' || !ACCESSORIES[key]) { currentAccessory = null; }
-    else {
-      const A = ACCESSORIES[key];
-      const span = document.createElement('span');
-      span.textContent = A.emoji;
-      span.style.cssText = `position:absolute;${A.pos}font-size:${A.size};z-index:8;pointer-events:none;filter:drop-shadow(0 1px 1px rgba(0,0,0,.35));`;
-      acc.appendChild(span);
-      currentAccessory = key;
-    }
-    try { localStorage.setItem('coco.accessory', currentAccessory || ''); } catch {}
-    syncAccessoryButtons();
-  }
-  function restoreAccessory() {
-    let key = null;
-    try { key = localStorage.getItem('coco.accessory'); } catch {}
-    applyAccessory(key);
-  }
-  function syncAccessoryButtons() {
-    document.querySelectorAll('#accessoryRow .costume-btn').forEach((b) => {
-      b.classList.toggle('active', (b.dataset.acc || 'none') === (currentAccessory || 'none'));
-    });
-  }
-  document.querySelectorAll('#accessoryRow .costume-btn').forEach((btn) => {
-    btn.addEventListener('click', () => applyAccessory(btn.dataset.acc));
-  });
-
-  // 追光点结算由 inventory.js 监听 onDotChaseDone 处理（货币奖励）
 
   // 导出给 inventory.js 的能力
   window.CocoPet = {
     needs, saveNeeds, updatePanel, updateIndicator, bondLv, addBond,
     setState, showBubble, applyInteraction, bond, personality, PERS, dayNight,
-    closeAllPanels, setUiOpen, api, currentCostume, applyAccessory, rerollPersonality,
-    get accessorized() { return currentAccessory; }
+    closeAllPanels, setUiOpen, api, currentCostume
   };
-  restoreAccessory();
 })();

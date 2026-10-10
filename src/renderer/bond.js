@@ -98,7 +98,7 @@
 
   function setEnabled(v) { state.enabled = !!v; save(); }
   function isEnabled() { return state.enabled; }
-  // 主人自定义称呼：猫记住你叫什么，AI/助理都用名字叫你（更真实）
+  // 主人自定义称呼：猫记住你叫什么，平时都用名字叫你（更真实）
   function setName(n) {
     state.name = (n || '').trim().slice(0, 12);
     save();
@@ -106,15 +106,16 @@
   }
   function getName() { return state.name; }
 
-  // ---- 助理能力按羁绊等级解锁（羁绊越高越得力，人设仍是慵懒贱橘） ----
+  // ---- 羁绊解锁内容（羁绊越高，猫咪越亲近、可玩性越多）----
+  // 删掉"AI 助理"后，这里展示真实会解锁的玩法与亲近程度，避免空话。
   const ASSIST_ABILITIES = [
-    { lv: 0, label: '基础问答、短句提问' },
-    { lv: 1, label: '简短备忘、一句话文案' },
-    { lv: 2, label: '文字一句话总结、简单待办(≤3条)' },
-    { lv: 3, label: '结合你的习惯、多步小规划(≤5条)' },
-    { lv: 4, label: '长文提炼、存笔记、帮你写短句/消息' }
+    { lv: 0, label: '刚领养：高冷，给摸但要看你脸色' },
+    { lv: 1, label: '初识：解锁追光点小游戏' },
+    { lv: 2, label: '熟悉：肯让你多摸几下' },
+    { lv: 3, label: '亲近：玩完会主动蹭你、巡游更黏你' },
+    { lv: 4, label: '挚友：你就是我的全世界 💕' }
   ];
-  // 返回当前羁绊等级已解锁的助理能力标签列表
+  // 返回当前羁绊等级已解锁的内容标签列表
   function getAssistantPermission() {
     const lv = levelInfo().lv;
     return ASSIST_ABILITIES.filter((a) => a.lv <= lv).map((a) => a.label);

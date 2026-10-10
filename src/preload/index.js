@@ -77,27 +77,8 @@ contextBridge.exposeInMainWorld('coco', {
   panelResize(open) { ipcRenderer.send('pet:panel-resize', open); },
   /** 读取精灵图片为 dataURL（调色用），relPath 形如 "idle/frame-1.png" */
   readSprite(relPath) { return ipcRenderer.invoke('read-sprite', relPath); },
-  /** 手动查询当前天气（主进程立即返回天气概况） */
-  checkWeather() { ipcRenderer.send('pet:weather-check'); },
   /** 保存拍照卡片 PNG，返回 { path }；同时把图片写入剪贴板 */
   savePhoto(dataUrl) { return ipcRenderer.invoke('pet:save-photo', dataUrl); },
   /** 把 PNG dataURL 写入剪贴板（图片） */
-  copyPhoto(dataUrl) { return ipcRenderer.invoke('pet:copy-photo', dataUrl); },
-
-  // ---- AI 大脑 ----
-  /** 读取 AI 配置 */
-  aiGetConfig() { return ipcRenderer.invoke('ai:get-config'); },
-  /** 保存 AI 配置 */
-  aiSaveConfig(cfg) { ipcRenderer.send('ai:save-config', cfg); },
-  /** 发一次对话，返回 { ok, text }；主进程失败/禁用时 ok=false */
-  aiChat(messages) { return ipcRenderer.invoke('ai:chat', messages); },
-  /** 用系统默认浏览器打开外部链接（仅 http/https） */
-  openExternal(url) { ipcRenderer.send('pet:open-external', url); },
-  // ---- 本地模型（离线 · 免配置） ----
-  /** 查询本地模型是否已安装 / 正在运行 */
-  aiLocalStatus() { return ipcRenderer.invoke('ai:local-status'); },
-  /** 一键启动本地模型（并设为 local 后端），返回 { ok, port, reason } */
-  aiLocalStart() { return ipcRenderer.invoke('ai:local-start'); },
-  /** 停止本地模型进程 */
-  aiLocalStop() { ipcRenderer.send('ai:local-stop'); }
+  copyPhoto(dataUrl) { return ipcRenderer.invoke('pet:copy-photo', dataUrl); }
 });

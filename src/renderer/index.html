@@ -9,13 +9,11 @@
 <body>
   <div id="pet">
     <img id="petImg" draggable="false" alt="咖啡猫">
-    <!-- 可穿戴配饰层（像素风小配件，叠加在猫身上） -->
-    <div id="accessory"></div>
     <div id="bubble"></div>
     <div id="indicator"></div>
     <!-- 羁绊升级庆祝彩屑层（全屏覆盖，不挡点击） -->
     <div id="confetti"></div>
-    <!-- 状态面板（默认隐藏）：羁绊养成 + 饱食 / 清洁 / 精力 / 心情 -->
+    <!-- 状态面板（默认隐藏）：羁绊养成 + 饱食 / 清洁 / 心情 -->
     <div id="needsPanel" hidden>
       <div class="panel-head"><span class="panel-title">📊 Coco 状态</span></div>
       <!-- 羁绊养成块：越养越亲近 -->
@@ -28,7 +26,6 @@
       </div>
       <div class="need-row"><span>🍝 饱食</span><div class="bar"><i id="need-hunger"></i></div></div>
       <div class="need-row"><span>🛁 清洁</span><div class="bar"><i id="need-clean"></i></div></div>
-      <div class="need-row"><span>😴 精力</span><div class="bar"><i id="need-energy"></i></div></div>
       <div class="need-row"><span>🎈 心情</span><div class="bar"><i id="need-mood"></i></div></div>
     </div>
     <!-- 右键动作菜单（默认隐藏）：快捷动作 + 分级收纳，不滚动一目了然 -->
@@ -48,16 +45,13 @@
         <div class="menu-group-body" data-body="play">
           <button data-action="chase">🐱 追光标</button>
           <button data-action="fishing">🎣 钓鱼</button>
-          <button data-action="drink">☕ 喝咖啡</button>
           <button data-action="walk">🚶 桌面巡游</button>
-          <button data-action="game">🎮 接毛线球</button>
         </div>
         <button class="menu-group-head" data-group="dress" type="button">🎨 装扮 <i>▾</i></button>
         <div class="menu-group-body" data-body="dress">
           <button data-action="skin">🎨 皮肤工坊</button>
           <button data-action="photo">📸 拍照</button>
           <button data-action="bag">🎒 背包</button>
-          <button data-action="shop">🛒 商店</button>
         </div>
         <button class="menu-group-head" data-group="me" type="button">📊 我的猫咪 <i>▾</i></button>
         <div class="menu-group-body" data-body="me">
@@ -65,14 +59,8 @@
           <button data-action="bond">💞 羁绊</button>
           <button data-action="album">📖 相册</button>
         </div>
-        <button class="menu-group-head" data-group="more" type="button">⚙️ 更多 <i>▾</i></button>
-        <div class="menu-group-body" data-body="more">
-          <button data-action="ai">🧠 AI 设置</button>
-          <button data-action="assist">💬 问问 Coco</button>
-          <button data-action="weather">🌤 天气</button>
-          <button data-action="quit">🚪 退出</button>
-        </div>
       </div>
+      <button data-action="quit" class="menu-quit">🚪 退出</button>
     </div>
     <!-- 皮肤工坊面板（默认隐藏） -->
     <div id="skinPanel" hidden>
@@ -106,68 +94,10 @@
         <button id="skinRandom">🎲 随机配色</button>
         <button id="skinDefault">↩ 恢复橘猫</button>
       </div>
-      <!-- 可穿戴配饰（像素小配件，可自由叠加） -->
-      <div class="costume-row">
-        <span class="costume-label">配饰</span>
-        <div class="costume-options" id="accessoryRow">
-          <button class="costume-btn" data-acc="none">🚫 无</button>
-          <button class="costume-btn" data-acc="hat">🎩 礼帽</button>
-          <button class="costume-btn" data-acc="bow">🎀 蝴蝶结</button>
-          <button class="costume-btn" data-acc="glasses">🕶️ 墨镜</button>
-          <button class="costume-btn" data-acc="scarf">🧣 围巾</button>
-          <button class="costume-btn" data-acc="helmet">⛑️ 安全帽</button>
-        </div>
-      </div>
       <div class="skin-row"><span>配色码</span><input id="skinCode" readonly>
         <button id="skinExport">复制</button><button id="skinImport">粘贴</button></div>
       <div class="skin-hint">把配色码发给朋友，对方「粘贴」就能得到同款猫咪~</div>
       <button id="skinClose">完成 ✔</button>
-    </div>
-    <!-- AI 大脑设置面板（默认隐藏） -->
-    <div id="aiPanel" hidden>
-      <div class="skin-title">🧠 AI 大脑（可选）</div>
-      <div class="skin-row"><label class="ai-toggle"><input type="checkbox" id="aiEnabled"> 启用 AI（关闭则完全离线、用本地文案）</label></div>
-      <div class="skin-row"><span>后端</span>
-        <select id="aiBackend">
-          <option value="online">在线 API</option>
-          <option value="local">本地 llama.cpp</option>
-        </select>
-      </div>
-      <div class="skin-row"><span>接口地址</span><input id="aiBaseUrl" placeholder="https://…/v1 或 http://127.0.0.1:8080/v1"></div>
-      <div class="skin-row"><span>API Key</span><input id="aiKey" type="password" placeholder="留空则不带鉴权头"></div>
-      <div class="skin-row"><span>模型</span><input id="aiModel" placeholder="qwen-turbo / 本地模型名"></div>
-      <div class="skin-row"><span>人设提示词</span><textarea id="aiPrompt" rows="3"></textarea></div>
-      <div class="skin-row"><span>调用冷却</span>
-        <select id="aiCooldown">
-          <option value="10000">10 秒</option>
-          <option value="15000" selected>15 秒</option>
-          <option value="30000">30 秒</option>
-          <option value="60000">60 秒</option>
-        </select>
-      </div>
-      <div class="skin-row"><button id="aiSave">保存并启用</button><button id="aiClose">关闭</button></div>
-      <div class="skin-row"><button id="aiWizard" class="ai-wizard">✨ 免费开通（3 步，不花钱）</button></div>
-      <div class="skin-row"><button id="aiLocal" class="ai-local">🤖 用本地模型（离线 · 免配置）</button></div>
-      <div class="skin-hint">在线用通义/豆包等兼容接口填 Key；本地用 llama.cpp server 填 http://127.0.0.1:8080/v1。Key 只存本机。不懂配置？点上面「免费开通」或「用本地模型」，跟着走就行。</div>
-    </div>
-    <!-- 问问 Coco：羁绊越高越得力的小助理（聊天面板） -->
-    <div id="assistPanel" hidden>
-      <div class="assist-head">
-        <span class="assist-title">💬 问问 Coco</span>
-        <button id="assistClose" class="assist-close" aria-label="关闭">✕</button>
-      </div>
-      <div class="assist-badge" id="assistBadge"></div>
-      <div class="assist-name-row">
-        <span class="assist-name-label">叫我</span>
-        <input id="assistName" type="text" maxlength="12" placeholder="给你起个称呼…" autocomplete="off" spellcheck="false">
-        <button id="assistClear" class="assist-clear" title="清空和 Coco 的聊天记忆">🧹</button>
-      </div>
-      <div class="assist-log" id="assistLog"></div>
-      <div class="assist-input-row">
-        <input id="assistInput" type="text" placeholder="问 Coco 一句话…（比如帮我写个待办）" autocomplete="off" spellcheck="false">
-        <button id="assistSend">发</button>
-      </div>
-      <div class="assist-hint">羁绊越高，Coco 越得力。挚友解锁长文提炼、存笔记、帮你写短句。</div>
     </div>
     <!-- 拍照模式：摆 pose + 出一张像素档案卡 -->
     <div id="photoPanel" hidden>
@@ -186,36 +116,16 @@
     <!-- 背包面板：查看 / 使用道具 -->
     <div id="bagPanel" hidden>
       <div class="skin-title">🎒 背包</div>
-      <div class="coin-line">🐟 小鱼币：<b id="bagCoins">0</b></div>
       <div class="inv-grid" id="bagItems"></div>
-      <div class="skin-hint">用道具直接喂养 / 陪伴 Coco，恢复数值并涨羁绊~</div>
+      <div class="skin-hint">用道具喂养 / 陪伴 Coco，恢复数值并涨羁绊；普通猫粮、小鱼干来自钓鱼收获~</div>
       <button id="bagClose">完成 ✔</button>
-    </div>
-    <!-- 商店面板：用小鱼币购买道具 -->
-    <div id="shopPanel" hidden>
-      <div class="skin-title">🛒 小鱼币商店</div>
-      <div class="coin-line">🐟 小鱼币：<b id="shopCoins">0</b></div>
-      <div class="inv-grid" id="shopItems"></div>
-      <div class="skin-hint">小鱼币来自钓鱼、追光点和接毛线球小游戏~</div>
-      <button id="shopClose">完成 ✔</button>
     </div>
     <!-- 相册面板：收集的回忆与成就 -->
     <div id="albumPanel" hidden>
       <div class="skin-title">📖 相册 · 回忆收集</div>
       <div class="inv-grid" id="albumGrid"></div>
-      <div class="skin-hint">羁绊升级、钓到稀有鱼、小游戏高分、拍照都会留下回忆~</div>
+      <div class="skin-hint">羁绊升级、钓到大鱼、拍照都会留下回忆~</div>
       <button id="albumClose">完成 ✔</button>
-    </div>
-    <!-- 小游戏面板：接毛线球（点击小球接住得分，赚小鱼币） -->
-    <div id="gamePanel" hidden>
-      <div class="skin-title">🎮 接毛线球</div>
-      <div class="coin-line">🐟 本轮得分：<b id="gameScore">0</b>　小鱼币 +<b id="gameCoin">0</b></div>
-      <canvas id="gameCanvas" width="300" height="220"></canvas>
-      <div class="skin-row">
-        <button id="gameStart">▶ 开始（60 秒）</button>
-        <button id="gameClose">关闭</button>
-      </div>
-      <div class="skin-hint">毛线球会落下来，移动鼠标接住它~ 每接住一个 +1 分，结算换小鱼币。</div>
     </div>
   </div>
   <script src="bond.js"></script>
