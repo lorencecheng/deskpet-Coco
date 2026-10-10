@@ -125,18 +125,38 @@
   // ---- 逐帧动画 ----
   let animTimer = null;
   let frameIdx = 0;
+  // 记住当前帧序列与 fps，供"失焦/隐藏暂停、回焦恢复"用（闲置降 CPU）
+  let animFrames = null;
+  let animFps = 4;
   function stopAnim() {
     if (animTimer) { clearInterval(animTimer); animTimer = null; }
   }
   function startAnim(frames, fps) {
     stopAnim();
     frameIdx = 0;
+    animFrames = frames || null;
+    animFps = fps || ANIM_FPS;
     petImg.src = frameSrc(frames[0]);
+    if (document.hidden || document.hasFocus() === false) return; // 不可见时只放首帧，不启定时器
     animTimer = setInterval(() => {
       frameIdx = (frameIdx + 1) % frames.length;
       petImg.src = frameSrc(frames[frameIdx]);
-    }, 1000 / fps);
+    }, 1000 / animFps);
   }
+  function pauseIfHidden() {
+    if (document.hidden || document.hasFocus() === false) stopAnim();
+  }
+  function resumeIfVisible() {
+    if (!document.hidden && document.hasFocus() && animFrames && animFrames.length > 1 && !animTimer) {
+      animTimer = setInterval(() => {
+        frameIdx = (frameIdx + 1) % animFrames.length;
+        petImg.src = frameSrc(animFrames[frameIdx]);
+      }, 1000 / animFps);
+    }
+  }
+  document.addEventListener('visibilitychange', () => (document.hidden ? pauseIfHidden() : resumeIfVisible()));
+  window.addEventListener('blur', pauseIfHidden);
+  window.addEventListener('focus', resumeIfVisible);
 
   // ---- 状态机 ----
   let currentState = null;
@@ -183,27 +203,57 @@
     if (cfg.duration) autoTimer = setTimeout(() => setState('idle'), cfg.duration);
   }
 
-  // ---- 随机自主行为：待机时猫自己会"做点事"，按心情/饱食/精力加权；AI 开启时由 AI 自主挑动作+吐槽 ----
+  // ---- 随机自主行为：待机时猫自己会"做点事"，按心情/饱食/精力 + 性格加权；AI 开启时由 AI 自主挑动作+吐槽 ----
   let idleLoopTimer = null;
-  // 行为池：w 为基础权重，下面按需求状态动态加成（knockbowl/doze/sulk 平时 w=0，缺触发时被加权进来）
+  // 性格系统：每只猫随机一个性格，影响"待机干什么、台词基调、粘不粘人"（本地持久化，重启不变）
+  const PERSONALITIES = {
+    clingy:   { name: '粘人',   icon: '🫂',  desc: '总想凑到你旁边~',
+      weight: { play: 1, bounce: 1, lookaround: 1, groom: 0, sulk: -2, yawn: 0 } },
+    aloof:    { name: '高冷',   icon: '🧊',  desc: '不轻易讨好你~',
+      weight: { play: -2, bounce: -2, lookaround: 0, yawn: 1, doze: 1, groom: 0 } },
+    energetic:{ name: '好动',   icon: '⚡',  desc: '一刻也闲不住~',
+      weight: { play: 2, bounce: 2, scratch: 1, yawn: -1, doze: -1, stretch: 1 } },
+    lazy:     { name: '懒猫',   icon: '😴',  desc: '能躺着绝不坐着~',
+      weight: { yawn: 2, doze: 2, stretch: 1, play: -2, bounce: -1, scratch: 0 } },
+    foodie:   { name: '吃货',   icon: '🍝',  desc: '为了一口吃的能卖萌~',
+      weight: { knockbowl: 2, play: 1, groom: 0, yawn: 0, bounce: 1 } }
+  };
+  let personality = 'clingy';
+  function loadPersonality() {
+    try {
+      const p = localStorage.getItem('coco.personality');
+      if (p && PERSONALITIES[p]) personality = p;
+      else { // 首次：随机性格（好动/懒猫略多，更出彩）
+        const keys = ['clingy', 'aloof', 'energetic', 'energetic', 'lazy', 'lazy', 'foodie', 'foodie'];
+        personality = keys[(Math.random() * keys.length) | 0];
+        try { localStorage.setItem('coco.personality', personality); } catch {}
+      }
+    } catch { personality = 'clingy'; }
+  }
+  const PERS = () => PERSONALITIES[personality];
+  // 行为池：w 为基础权重，下面按需求状态 + 性格动态加成（knockbowl/doze/sulk 平时 w=0，缺触发时被加权进来）
   const AUTO_BEHAVIORS = [
-    { id: 'stretch',    state: 'stretch',    w: 1, mood: [0, 100], bubble: ['伸个懒腰~ 舒服~', '哈——伸个懒腰', '骨节咔咔响，拉伸一下~'] },
-    { id: 'lookaround', state: 'lookaround', w: 1, mood: [0, 100], bubble: ['嗯？那边好像有动静……', '东张西望中……', '谁在叫我？看看~'] },
-    { id: 'groom',      state: 'groom',      w: 1, mood: [0, 100], bubble: ['洗脸脸，保持体面~ 🧼', '舔舔爪子理理毛，我可精致了~', '洗香香，本猫最优雅~'] },
-    { id: 'yawn',       state: 'yawn',       w: 1, mood: [0, 100], bubble: ['哈——真困呀~ 🥱', '打个哈欠，眯一会儿~', '这日子好闲……先困一下~'] },
-    { id: 'scratch',    state: 'scratch',    w: 1, mood: [0, 100], bubble: ['挠一挠，爽~', '嗯？哪里痒……啊舒服了~'] },
-    { id: 'play',       state: 'yarn',       w: 2, mood: [60, 100], bubble: ['（自己滚起毛线球）嘿，接招！', '没人陪我？我自己玩！', '毛线球！看我的！'] },
-    { id: 'bounce',     state: 'happy',      w: 1, mood: [60, 100], bubble: ['（开心蹦跶两下）喵~！', '心情好，蹦起来~'] },
-    { id: 'knockbowl',  state: 'drop',       w: 0, mood: [0, 100], bubble: ['啪！我把碗掀了！（饿了）', '碗里空空，气死我了~', '面条呢？！我掀桌！'] },
-    { id: 'doze',       state: 'sleep',      w: 0, mood: [0, 100], bubble: ['眼皮好重……先瘫一下~ 😴', 'ZZZ……（困了先眯一会儿）'], doze: true },
-    { id: 'sulk',       state: 'drop',       w: 1, mood: [0, 35],  bubble: ['哼，没人理我……', '别烦我，我正闹脾气呢~'] },
-    { id: 'bellyshow',  state: 'drop',       w: 0, mood: [0, 100], bubble: ['（在你面前躺平露肚皮~）', '信任你到敢翻肚皮啦~'] }
+    { id: 'stretch',    state: 'stretch',    w: 1, mood: [0, 100], bubble: ['伸个懒腰~ 舒服~', '哈——伸个懒腰', '骨节咔咔响，拉伸一下~', '（弓背舒展）通体舒畅~', '拉伸完，又是一只好猫~'] },
+    { id: 'lookaround', state: 'lookaround', w: 1, mood: [0, 100], bubble: ['嗯？那边好像有动静……', '东张西望中……', '谁在叫我？看看~', '（竖起耳朵）有快递？有小鱼干？', '雷达扫描中，一切正常~'] },
+    { id: 'groom',      state: 'groom',      w: 1, mood: [0, 100], bubble: ['洗脸脸，保持体面~ 🧼', '舔舔爪子理理毛，我可精致了~', '洗香香，本猫最优雅~', '（认真梳毛）形象管理不能停~', '毛都顺了，帅吧~'] },
+    { id: 'yawn',       state: 'yawn',       w: 1, mood: [0, 100], bubble: ['哈——真困呀~ 🥱', '打个哈欠，眯一会儿~', '这日子好闲……先困一下~', '困意来袭，挡不住~', '（揉眼睛）再撑一下下……'] },
+    { id: 'scratch',    state: 'scratch',    w: 1, mood: [0, 100], bubble: ['挠一挠，爽~', '嗯？哪里痒……啊舒服了~', '（伸爪挠桌角）修修指甲~', '这一挠，通体舒泰~', '抓哪儿都行，别抓你沙发~'] },
+    { id: 'play',       state: 'yarn',       w: 2, mood: [60, 100], bubble: ['（自己滚起毛线球）嘿，接招！', '没人陪我？我自己玩！', '毛线球！看我的！', '（扑毛线球）别跑别跑~', '自己也能玩得飞起~'] },
+    { id: 'bounce',     state: 'happy',      w: 1, mood: [60, 100], bubble: ['（开心蹦跶两下）喵~！', '心情好，蹦起来~', '（原地弹跳）快来快来，一起开心~', '蹦两下，尾巴都要飞了~'] },
+    { id: 'knockbowl',  state: 'drop',       w: 0, mood: [0, 100], bubble: ['啪！我把碗掀了！（饿了）', '碗里空空，气死我了~', '面条呢？！我掀桌！', '（怒拍空碗）谁把我的面吃了！', '饿到掀碗，本猫很有骨气！'] },
+    { id: 'doze',       state: 'sleep',      w: 0, mood: [0, 100], bubble: ['眼皮好重……先瘫一下~ 😴', 'ZZZ……（困了先眯一会儿）', '（脑袋一点一点）困……', '电量告急，小憩充电~'], doze: true },
+    { id: 'sulk',       state: 'drop',       w: 1, mood: [0, 35],  bubble: ['哼，没人理我……', '别烦我，我正闹脾气呢~', '（背过身）你猜我为什么不理你~', '哄我！不然我继续生气~'] },
+    { id: 'bellyshow',  state: 'drop',       w: 0, mood: [0, 100], bubble: ['（在你面前躺平露肚皮~）', '信任你到敢翻肚皮啦~', '（四脚朝天）肚皮都交给你了~'] }
   ];
   function randOf(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
   function pickAutoBehavior() {
     const lv = bondLv();
+    const pw = PERS().weight; // 性格权重偏移
     const entries = AUTO_BEHAVIORS.map((b) => {
       let w = b.w;
+      // 性格加成：粘人更常凑近，高冷更常发呆/睡觉，好动更多玩闹，懒猫更常打盹，吃货更常饿急掀碗
+      if (pw[b.id] !== undefined) w += pw[b.id];
+      if (b.id === 'bellyshow' && pw[b.id] !== undefined) w += pw[b.id];
       // 需求驱动的"个性"加权：很饿想掀碗、很困想打盹、心情差闹脾气
       if (b.id === 'knockbowl' && needs.hunger < 30) w += 5;
       if (b.id === 'doze' && needs.energy < 30) w += 5;
@@ -260,12 +310,13 @@
           const begs = NEED_DEFS.hunger.hints;
           showBubble(`🍝 ${begs[Math.floor(Math.random() * begs.length)]} 丢个文件给我吃掉吧~`, 4200);
         }
-        // 羁绊越深越黏人：熟悉后偶尔凑近你说句话（低概率，不打扰）
+        // 羁绊越深越黏人：熟悉后偶尔凑近你说句话（低概率，不打扰）；性格粘人会更常凑近
         const lv = bondLv();
-        if (lv >= 2 && Math.random() < (lv >= 4 ? 0.22 : 0.13)) {
+        const clingBonus = personality === 'clingy' ? 0.08 : (personality === 'aloof' ? -0.05 : 0);
+        if (lv >= 2 && Math.random() < (lv >= 4 ? 0.22 : 0.13) + clingBonus) {
           const near = lv >= 4
-            ? ['（凑到你光标边趴下，陪你~）', '喵~ 你在就好。', '（蹭蹭屏幕）别太累哦。']
-            : ['（在你附近悠闲晃悠）', '喵~ 今天也陪你~', '（朝你那边看了看）'];
+            ? ['（凑到你光标边趴下，陪你~）', '喵~ 你在就好。', '（蹭蹭屏幕）别太累哦。', '（悄悄挪到你旁边）陪着你~', '有你在旁边，我睡得都香~', '（眯眼蹭你）今天辛苦啦~']
+            : ['（在你附近悠闲晃悠）', '喵~ 今天也陪你~', '（朝你那边看了看）', '（尾巴轻轻扫过）我在呢~', '看你忙，我静静陪着~'];
           showBubble(randOf(near), 3200);
         }
       }
@@ -1046,6 +1097,9 @@
           bAbl.innerHTML = abilities.map((a) => `<span class="bond-chip hi">✓ ${a}</span>`).join('')
             || '<span class="bond-chip">继续培养解锁助理能力</span>';
         }
+        // 性格信息（每只猫随机性格，影响待机行为与台词基调）
+        const bPerso = document.getElementById('bondPerso');
+        if (bPerso) bPerso.textContent = `${PERS().icon} 性格：${PERS().name} · ${PERS().desc}`;
       } else {
         if (bIcon) bIcon.textContent = '⚙️';
         if (bName) bName.textContent = '开放';
@@ -1074,39 +1128,153 @@
 
   // ---- 本地性格引擎：不开 AI 也"活"的贱猫 ----
   // 常规反应 + 需求偏低时的"看脸色"贱话，让普通用户零配置也能感到它有性格
+  // 常规反应池：每个动作 8~10 条，覆盖不同情绪变体（心情好/坏都能接上）
   const REACT = {
-    feed:    ['宽面真好吃~ 谢谢！', '吸溜~ 这碗面我记你一辈子~', '吃饱饱，懒得动了~'],
-    bath:    ['泡泡浴好舒服~ 香香哒~', '洗白白啦，我最干净！', '咕噜咕噜，泡得好惬意~'],
-    yarn:    ['毛线球最好玩啦！', '嘿嘿，看你往哪跑~', '玩得好开心呀！'],
-    chase:   ['哈！被我追到啦~', '你跑不过我哒！', '追着光标好快乐~'],
-    happy:   ['喵~ 你好呀！', '陪着我真开心~', '呼噜呼噜~'],
-    drink:   ['咖啡暖乎乎的~', '咕嘟咕嘟，好提神！', '工作日的下午茶真棒~'],
-    scratch: ['挠一挠，真舒服~', '啊~ 抓到痒处啦！', '浑身清爽~'],
-    fishing: ['嘘……鱼要上钩啦！', '今天能钓到大鱼吗~', '垂钓的时光最悠闲~'],
-    sleep:   ['晚安~ 做个好梦~', '呼……先睡一小会儿~', 'zzZ…… 别吵我哦~']
+    feed: [
+      '宽面真好吃~ 谢谢！', '吸溜~ 这碗面我记你一辈子~', '吃饱饱，懒得动了~',
+      '面条弹弹的，是本猫的菜！', '（埋进碗里大口吸）好吃到眯眼~', '这一口下去，世界都美好了~',
+      '要是天天有宽面，我愿意当你的猫~', '嗝~ 吃撑了，但还能再来一筷子！', '谢谢大厨！给个好评~', '面条下肚，力气up up！'
+    ],
+    bath: [
+      '泡泡浴好舒服~ 香香哒~', '洗白白啦，我最干净！', '咕噜咕噜，泡得好惬意~',
+      '温水泡泡，本猫的 Spa 时间~', '（甩甩水珠）看看，多蓬松~', '香喷喷，等会蹭你一脸~',
+      '洗澡是猫生一大享受~', '泡沫多到能当帽子，嘿嘿~', '洗去一天的班味，清爽！', '泡完这顿，感觉能再战五百年~'
+    ],
+    yarn: [
+      '毛线球最好玩啦！', '嘿嘿，看你往哪跑~', '玩得好开心呀！',
+      '（扑过去又扑过来）捉不到我吧~', '毛线球在手，快乐我有~', '看我把你缠成个球！',
+      '这个毛线球……归我了！', '（眼睛发亮）还有没有别的玩具呀~', '缠毛线是我的天赋技能~', '玩累之前，谁也别想抢走它~'
+    ],
+    chase: [
+      '哈！被我追到啦~', '你跑不过我哒！', '追着光标好快乐~',
+      '（弓背小碎步）锁定目标……冲！', '左突右闪，我可是追捕高手~', '光标在哪我在哪，嘿嘿~',
+      '慢点慢点，让我逮住你！', '（尾巴兴奋地晃）来呀，快跑呀~', '追到你就摸摸我，说定了~', '这波操作，我自己都信了~'
+    ],
+    happy: [
+      '喵~ 你好呀！', '陪着我真开心~', '呼噜呼噜~',
+      '（蹭蹭你）见到你就开心~', '今天也要元气满满喵~', '嘿嘿，你对我真好~',
+      '尾巴都翘起来啦~', '有你在，心情就up~', '（眯眼撒娇）多陪陪我嘛~', '呼噜声警告，我超开心！'
+    ],
+    drink: [
+      '咖啡暖乎乎的~', '咕嘟咕嘟，好提神！', '工作日的下午茶真棒~',
+      '一口回魂，清醒了~', '（捧着杯子小口喝）优雅~', '咖啡配猫，绝配~',
+      '喝完这杯，陪你继续干活~', '奶香奶香的，是本猫的品味~', '提神醒脑，搬砖猫最爱~', '续命水到位，开工！'
+    ],
+    scratch: [
+      '挠一挠，真舒服~', '啊~ 抓到痒处啦！', '浑身清爽~',
+      '（伸爪挠挠）这酸爽~', '哪里痒挠哪里，舒服~', '挠完这顿，倍儿精神~',
+      '背痒痒的，帮我挠挠嘛~', '（尾巴轻摇）挠完感觉重生~', '指甲保养中，别打搅我~', '舒服到想打滚~'
+    ],
+    fishing: [
+      '嘘……鱼要上钩啦！', '今天能钓到大鱼吗~', '垂钓的时光最悠闲~',
+      '（盯着水面）钓鱼要沉住气~', '听说这水里藏着大鱼……', '愿者上钩，说的就是我~',
+      '鱼竿是我的第三只手~', '等鱼的时候，最适合发呆~', '（眯眼）来了来了……哇！', '今天满载而归的话，请你吃面~'
+    ],
+    sleep: [
+      '晚安~ 做个好梦~', '呼……先睡一小会儿~', 'zzZ…… 别吵我哦~',
+      '（团成一团）最舒服的姿势~', '梦见一屋子宽面……', '睡醒又是一只好猫~',
+      '别关灯，我还在做梦呢~', 'zzz……梦里钓到好多鱼~', '安安静静，让我补个觉~', '精力槽恢复中，请勿打扰~'
+    ]
+  };
+  // 羁绊分档台词：陌生=高冷短句，熟悉后=嘴欠撒娇，挚友=掏心窝的贱
+  const BOND_REACT = {
+    feed: {
+      '陌生': ['（警惕地闻了闻）……还行。', '（吃得很快，随时准备跑）谢了。'],
+      '初识': ['开始有点习惯你的宽面了~', '味道不错，我记下你了~'],
+      '熟悉': ['这碗面，我正式盖章认证！', '嘿嘿，就知道你会喂我~'],
+      '亲近': ['有你喂的宽面，猫生圆满~', '（蹭你手）这面比你做饭手艺强~'],
+      '挚友': ['世界上最好的铲屎官，就你了！', '（埋碗里）这辈子跟定你了~']
+    },
+    happy: {
+      '陌生': ['（警惕地看你一眼）……别靠太近。', '喵。（高冷应答）'],
+      '初识': ['你逗我开心，还不错~', '（稍微放松）好吧，陪你玩~'],
+      '熟悉': ['嘿嘿，还是你懂我~', '跟你在一起，尾巴都摇了~'],
+      '亲近': ['（扑过来蹭）最喜欢你了！', '你的手一摸，我就没脾气~'],
+      '挚友': ['呼噜呼噜……这辈子赖上你了~', '你开心我就开心，傻瓜~']
+    },
+    chase: {
+      '陌生': ['（不太想陪你玩）追我可别后悔。', '……你跑你的，我看戏。'],
+      '初识': ['好吧，陪你追两下。', '（慢悠悠跑）就这？'],
+      '熟悉': ['（开始认真）来呀，追到你算我输！', '看我把你累趴下~'],
+      '亲近': ['（兴奋地蹦）一起跑起来！', '跟你玩最开心了~'],
+      '挚友': ['（撒开腿）你可追不上我，哈哈！', '这场追逐，我让着你点~']
+    },
+    yarn: {
+      '陌生': ['（把毛线球拨远一点）别来抢。', '……我自己玩，行。'],
+      '初识': ['这球有意思，你也玩？', '（试探地推给你）一起？'],
+      '熟悉': ['毛线球配你，绝了~', '抢到就归我，敢不敢？'],
+      '亲近': ['（扑向你）来嘛来嘛~', '跟你抢球，是最快乐的~'],
+      '挚友': ['毛线球再好，不如你陪~', '输赢不重要，你在我身边就行~']
+    },
+    bath: {
+      '陌生': ['（炸毛）你……你轻点！', '（湿漉漉地瞪你）记仇了。'],
+      '初识': ['（勉强配合）好吧，你洗。', '泡泡还挺舒服……'],
+      '熟悉': ['洗完给我顺顺毛~', '（甩你一脸水）嘿嘿，公平！'],
+      '亲近': ['香喷喷地蹭你，等夸呢~', '洗白白，为了让你抱~'],
+      '挚友': ['这澡，我只让你给我洗~', '（眯眼泡着）有你真好，喵~']
+    },
+    scratch: {
+      '陌生': ['（背过身）我自己来。', '别碰……我自己挠。'],
+      '初识': ['（试探）那……帮帮我也行。', '挠准点，差评。'],
+      '熟悉': ['（舒服眯眼）就这，继续！', '你这挠猫手艺，可以~'],
+      '亲近': ['（主动凑背）这里这里！', '你挠的，比我自己挠舒服~'],
+      '挚友': ['（瘫着享受）一辈子挠猫手~', '挠完再抱抱，全套服务~']
+    },
+    drink: {
+      '陌生': ['（端着杯子警惕）……我自己喝。', '咖啡还行。'],
+      '初识': ['你请的咖啡？谢了。', '（小口）还行，不赖。'],
+      '熟悉': ['你的咖啡品味，我认可~', '一起喝一杯？'],
+      '亲近': ['（捧杯凑你）敬你一个~', '你倒的咖啡，格外香~'],
+      '挚友': ['以后咖啡，你泡我喝，说定啦~', '（碰杯）为我们的友情~']
+    },
+    fishing: {
+      '陌生': ['（独自守着鱼竿）别出声。', '钓鱼是独处的艺术。'],
+      '初识': ['（招手）要不要看鱼？', '这水里应该有货。'],
+      '熟悉': ['一起钓，赢了请你吃鱼~', '你一来，鱼都躲起来了！'],
+      '亲近': ['（靠着你）一起等大鱼吧~', '钓上来分你一半~'],
+      '挚友': ['这鱼竿见证咱俩的情谊~', '钓的每一条鱼，都是为你~']
+    },
+    sleep: {
+      '陌生': ['（背对你缩着）别吵。', '……我自己睡。'],
+      '初识': ['（半睁眼）你看什么，我睡了。', '被子分你一半？算了。'],
+      '熟悉': ['（挪开点位置）挤挤也行。', '睡醒了再陪你~'],
+      '亲近': ['（在你身边团成球）你看着，我安心~', '枕着你的手，最好睡~'],
+      '挚友': ['有你在，我睡得特别香~', '晚安，明天继续赖着你~']
+    }
+  };
+  // 心情分档：心情很低时，混入一些"心累但口嫌体正直"的吐槽
+  const MOOD_REACT = {
+    low: [
+      '（耷拉着耳朵）今天有点没劲……', '心情蓝蓝的，你陪我会儿嘛~', '（小声）有点委屈，抱抱？',
+      '好累哦，心也好累……', '（背过身）让我缓一缓……', '等你哄我呢，快哄！'
+    ],
+    high: [
+      '（尾巴翘上天）今天超开心！', '心情好到想哼歌~', '被你宠得尾巴都飘飘然~',
+      '嘿嘿，这感觉比宽面还甜~', '（蹦跶）快夸夸我！'
+    ]
   };
   // 某一项需求很低时，猫会"看脸色"地吐槽（key=需求名，再按互动细分）
   const REACT_NEEDY = {
     hunger: {
-      feed:    ['你终于想起我啦！再来十碗！', '饿到腿软，这碗面救了我~', '早该喂我了，哼~'],
-      drink:   ['咖啡不解饿！我要的是宽面！'],
-      fishing: ['鱼半天不上钩，我都快饿晕了……']
+      feed:    ['你终于想起我啦！再来十碗！', '饿到腿软，这碗面救了我~', '早该喂我了，哼~', '（狼吞虎咽）慢点慢点……好吃！', '这顿宽面，值一条命~', '吃撑之前，别想把我叫走~'],
+      drink:   ['咖啡不解饿！我要的是宽面！', '先来碗面，咖啡是甜点！', '（嗅嗅）有面味吗？没有？那我走。'],
+      fishing: ['鱼半天不上钩，我都快饿晕了……', '再钓不到鱼，我自己跳水里捉了~', '钓鱼是仪式，吃饱才是真理~']
     },
     clean: {
-      bath: ['身上都馊了，还好你给我洗香香~', '泡泡浴，爽到眯眼~'],
-      feed: ['先让我洗个澡啦，脏着怎么吃面！'],
-      sleep: ['别让我脏着睡……先洗澡嘛~']
+      bath: ['身上都馊了，还好你给我洗香香~', '泡泡浴，爽到眯眼~', '脏了这么多天，总算得救了~', '洗完这顿，我又是精致的猫~'],
+      feed: ['先让我洗个澡啦，脏着怎么吃面！', '不行，先洗干净，才有仪式感~'],
+      sleep: ['别让我脏着睡……先洗澡嘛~', '脏着睡不踏实，先冲一下~']
     },
     energy: {
-      sleep: ['累死了……终于能睡了~', '别吵我，让我瘫一会~'],
-      yarn:  ['玩不动啦……让我歇会吧~'],
-      chase: ['跑不动了，你自己玩吧……'],
-      happy: ['好累……摸摸就够了~']
+      sleep: ['累死了……终于能睡了~', '别吵我，让我瘫一会~', '精力耗尽，电量1%，请充电~', '呼……这一觉别叫醒我~'],
+      yarn:  ['玩不动啦……让我歇会吧~', '眼皮打架了，毛线球改天~', '今天没体力陪你疯~'],
+      chase: ['跑不动了，你自己玩吧……', '腿软了，追不动了~', '改天，今天我当观众~'],
+      happy: ['好累……摸摸就够了~', '没力气蹦了，抱抱就好~']
     },
     mood: {
-      happy: ['心情好一点点了……', '陪陪我，我就开心了~'],
-      feed:  ['喂饱我心情就好了~', '吃得饱才笑得出来嘛~'],
-      yarn:  ['陪我玩，我就高兴了~']
+      happy: ['心情好一点点了……', '陪陪我，我就开心了~', '你的陪伴就是良药~', '抱一下，我心情就阴转晴~'],
+      feed:  ['喂饱我心情就好了~', '吃得饱才笑得出来嘛~', '美食治愈一切~'],
+      yarn:  ['陪我玩，我就高兴了~', '一起疯一下，烦恼全没~']
     }
   };
   function pickReaction(name) {
@@ -1116,10 +1284,22 @@
         if (needy === null || needs[k] < needs[needy]) needy = k;
       }
     }
+    // 1) 需求极低 → 优先"看脸色"吐槽（最真实）
     if (needy && REACT_NEEDY[needy] && REACT_NEEDY[needy][name]) {
-      const arr = REACT_NEEDY[needy][name];
-      return arr[Math.floor(Math.random() * arr.length)];
+      return randOf(REACT_NEEDY[needy][name]);
     }
+    // 2) 羁绊分档台词：按当前等级选对应口吻
+    if (bond && bond.isEnabled() && BOND_REACT[name]) {
+      const bName = bond.levelInfo().name; // 陌生/初识/熟悉/亲近/挚友
+      if (BOND_REACT[name][bName]) {
+        const bucket = BOND_REACT[name][bName];
+        if (Math.random() < 0.45) return randOf(bucket); // ~一半概率露出"熟不熟"的那一面
+      }
+    }
+    // 3) 心情很低时混入心累吐槽
+    if (needs.mood < 30 && Math.random() < 0.5) return randOf(MOOD_REACT.low);
+    if (needs.mood >= 75 && Math.random() < 0.3) return randOf(MOOD_REACT.high);
+    // 4) 兜底：常规反应池
     const arr = REACT[name] || ['喵~'];
     return arr[Math.floor(Math.random() * arr.length)];
   }
@@ -1404,9 +1584,10 @@
 
   // ---- 部位点击：点脑袋/爪子/肚子，猫反应不一样（复用现有状态，不新增精灵帧）----
   const ZONE_REACT = {
-    head:  ['摸头，眯眼享受~ 😌', '头这里最舒服，别停~', '哼，这位置还算会摸'],
-    paw:   ['别碰我爪，痒~', '再摸要咬你哦~', '爪子收了，休想拿捏我'],
-    belly: ['哎呀……肚子被摸，翻个身~', '肚子不能随便摸！', '痒死了，滚一圈躲你']
+    head:  ['摸头，眯眼享受~ 😌', '头这里最舒服，别停~', '哼，这位置还算会摸', '（闭眼蹭你手心）继续继续~', '头被摸，尾巴都软了~', '这力度刚好，高手~'],
+    paw:   ['别碰我爪，痒~', '再摸要咬你哦~', '爪子收了，休想拿捏我', '（缩爪）痒痒的，别闹~', '爪子是我的武器，不许乱碰！', '给你摸一下，就一下哦~'],
+    belly: ['哎呀……肚子被摸，翻个身~', '肚子不能随便摸！', '痒死了，滚一圈躲你', '（露出肚子又赶紧捂住）不行！', '肚皮这么软，你不许惦记~', '（四脚朝天）仅此一次！'],
+    body:  ['（眯眼）摸摸背也不错~', '背脊挠两下，舒服~', '（弓背配合）对，就这儿~']
   };
   // 把 petImg 内的点击坐标(0-1)映射到部位：头在上方，肚子在下方中部，爪在两侧
   function clickZone(px, py) {
@@ -1419,7 +1600,7 @@
   function onPetClick(px, py) {
     if (currentState === 'sleep') { setState('idle'); applyInteraction('happy'); setState('happy'); return; }
     const zone = clickZone(px, py);
-    if (zone === 'head' || zone === 'paw' || zone === 'belly') {
+    if (zone === 'head' || zone === 'paw' || zone === 'belly' || zone === 'body') {
       const lv = bondLv();
       // 羁绊低时很警惕：Lv0 完全不让摸肚子，Lv1 也有概率躲开（真正的高冷期）
       if (zone === 'belly' && lv <= 1 && Math.random() < (lv === 0 ? 1 : 0.4)) {
@@ -1432,7 +1613,7 @@
       needs.mood = Math.min(100, needs.mood + 12);
       updateIndicator(); updatePanel(); saveNeeds();
       addBond('pet', 3);
-      const zoneName = zone === 'head' ? '脑袋' : (zone === 'paw' ? '爪子' : '肚子');
+      const zoneName = zone === 'head' ? '脑袋' : (zone === 'paw' ? '爪子' : (zone === 'belly' ? '肚子' : '背'));
       maybeAiLine(`你点了我的${zoneName}`).then((used) => {
         if (!used) showBubble(ZONE_REACT[zone][Math.floor(Math.random() * ZONE_REACT[zone].length)], 3600);
       });
@@ -1485,6 +1666,12 @@
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const a = btn.dataset.action;
+      // 羁绊解锁小游戏：追光点 Lv1(初识) 才开放，低等级点了引导培养（追光标始终开放）
+      if (a === 'dotchase' && bondLv() < 1) {
+        showBubble('（把身子往你手边蹭了蹭）先多陪陪我，到「初识」就能追光点啦~', 3200);
+        hideMenu();
+        return;
+      }
       // 菜单点「桌面巡游」：先通知主进程开始巡游（渲染进程只切动画，不再回发）
       if (a === 'walk') api.walk();
       runAction(a);
@@ -1564,11 +1751,12 @@
   if (skinScheme.active) applySkin(skinScheme);
   restoreCostume(); // 恢复上次穿衣（须在 setState 之前，避免先以裸猫启动基础动画导致换装后动画未停）
   if (currentCostume) { recolorCache = {}; syncCostumeButtons(); }
+  loadPersonality(); // 恢复/随机性格（影响待机行为与台词基调）
   setState('idle');
   scheduleIdleLoop();
   checkLongIdle();
   loadNeeds(); // 恢复上次的四维状态（饱食/清洁/精力/心情）
   tickNeeds();
   api.aiGetConfig().then((cfg) => { if (cfg && typeof cfg === 'object') aiConfig = cfg; }).catch(() => {}); // 恢复 AI 配置
-  setTimeout(() => showBubble('喵~ 我是咖啡猫 Coco，也是你的桌面小助理：把文件拖到我身上我会帮你放进回收站；坐久了、天气有变我也会提醒你~'), 2500);
+  setTimeout(() => showBubble(`喵~ 我是${PERS().icon}${PERS().name}猫 Coco（${PERS().desc}），也是你的桌面小助理：把文件拖到我身上我会帮你放进回收站；坐久了、天气有变我也会提醒你~`), 2500);
 })();

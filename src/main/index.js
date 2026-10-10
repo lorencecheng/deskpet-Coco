@@ -10,6 +10,10 @@ const net = require('net');
 const https = require('https');
 const http = require('http');
 
+// 高 DPI 支持：像素精确、精灵不模糊（透明置顶小窗尤其需要）
+app.commandLine.appendSwitch('high-dpi-support', '1');
+app.commandLine.appendSwitch('force-device-scale-factor', '1');
+
 // 窗口尺寸：基础方块 + 可缩放（原 320 → 256，整体缩小 20%；支持 70%/100%/130%）
 let petW = 256;
 let petH = 256;
@@ -56,11 +60,22 @@ let weatherReminderOn = true;
 let weatherTimer = null;
 let lastWeatherAlert = null;
 
-/** 窗口创建后始终保持在工作区内，防止拖到屏幕外 */
+/** 获取窗口当前所在显示器的工作区（多显示器适配：窗口钳在它所在屏内，不跨屏飘走） */
+function currentWorkArea() {
+  try {
+    if (win && !win.isDestroyed()) {
+      const b = win.getBounds();
+      return screen.getDisplayMatching(b).workArea;
+    }
+  } catch {}
+  return screen.getPrimaryDisplay().workArea;
+}
+
+/** 窗口创建后始终保持在工作区内，防止拖到屏幕外（按所在显示器钳制） */
 function keepInBounds() {
   if (!win || win.isDestroyed()) return;
   const b = win.getBounds();
-  const wa = screen.getPrimaryDisplay().workArea;
+  const wa = currentWorkArea();
   let x = b.x;
   let y = b.y;
   if (x < wa.x) x = wa.x;
@@ -445,7 +460,7 @@ function enterEdgeHide(edge) {
 
 /** 把窗口平滑移动到 (tx, ty)，到位后回调（慢速、自然，配合走路动画） */
 function moveWindowTo(tx, ty, onDone) {
-  const wa = screen.getPrimaryDisplay().workArea;
+  const wa = currentWorkArea(); // 多显示器：钳在窗口当前所在屏内
   tx = Math.max(wa.x, Math.min(wa.x + wa.width - petW, tx));
   ty = Math.max(wa.y, Math.min(wa.y + wa.height - petH, ty));
   const [sx0, sy0] = win.getPosition();
@@ -476,7 +491,7 @@ function moveWindowTo(tx, ty, onDone) {
 /** 巡游：只沿屏幕底部横向溜达——走一段、停一会（伸懒腰/张望）、再来，几趟后自动停下 */
 function runWanderLeg() {
   if (!wandering || !win || win.isDestroyed()) { wandering = false; return; }
-  const wa = screen.getPrimaryDisplay().workArea;
+  const wa = currentWorkArea(); // 多显示器：贴当前屏底部
   const m = 24;
   const ty = wa.y + wa.height - petH - m; // 固定贴底，不再跳上/左/右边
   const [curX] = win.getPosition();
