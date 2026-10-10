@@ -231,7 +231,28 @@
     } catch { personality = 'clingy'; }
   }
   const PERS = () => PERSONALITIES[personality];
-  // 行为池：w 为基础权重，下面按需求状态 + 性格动态加成（knockbowl/doze/sulk 平时 w=0，缺触发时被加权进来）
+  // 性格药剂：重新随机一个性格（道具触发），持久化并刷新界面
+  function rerollPersonality() {
+    const keys = Object.keys(PERSONALITIES);
+    personality = keys[(Math.random() * keys.length) | 0];
+    try { localStorage.setItem('coco.personality', personality); } catch {}
+    if (typeof updatePanel === 'function') updatePanel();
+    showBubble(`🧪 性格变了！现在我是${PERS().icon}${PERS().name}猫（${PERS().desc}）`, 3200);
+    return personality;
+  }
+  // 昼夜真实时间联动：读取系统时间，夜晚更困、白天更活泼，睡眠恢复精力（夜晚恢复更快）
+  function dayNight() {
+    const h = new Date().getHours();
+    const isNight = h < 6 || h >= 19; // 19:00 - 06:00 夜晚
+    let phase = '夜晚';
+    if (h >= 5 && h < 8) phase = '清晨';
+    else if (h >= 8 && h < 12) phase = '上午';
+    else if (h >= 12 && h < 14) phase = '午后';
+    else if (h >= 14 && h < 18) phase = '下午';
+    else if (h >= 18 && h < 19) phase = '傍晚';
+    return { hour: h, isNight, isDay: !isNight, phase };
+  }
+  // 行为池：w 为基础权重，下面按需求状态 + 性格 + 昼夜动态加成（knockbowl/doze/sulk 平时 w=0，缺触发时被加权进来）
   const AUTO_BEHAVIORS = [
     { id: 'stretch',    state: 'stretch',    w: 1, mood: [0, 100], bubble: ['伸个懒腰~ 舒服~', '哈——伸个懒腰', '骨节咔咔响，拉伸一下~', '（弓背舒展）通体舒畅~', '拉伸完，又是一只好猫~'] },
     { id: 'lookaround', state: 'lookaround', w: 1, mood: [0, 100], bubble: ['嗯？那边好像有动静……', '东张西望中……', '谁在叫我？看看~', '（竖起耳朵）有快递？有小鱼干？', '雷达扫描中，一切正常~'] },
@@ -249,11 +270,22 @@
   function pickAutoBehavior() {
     const lv = bondLv();
     const pw = PERS().weight; // 性格权重偏移
+    const dn = dayNight();     // 昼夜：夜晚更困、白天更活泼
     const entries = AUTO_BEHAVIORS.map((b) => {
       let w = b.w;
       // 性格加成：粘人更常凑近，高冷更常发呆/睡觉，好动更多玩闹，懒猫更常打盹，吃货更常饿急掀碗
       if (pw[b.id] !== undefined) w += pw[b.id];
       if (b.id === 'bellyshow' && pw[b.id] !== undefined) w += pw[b.id];
+      // 昼夜加成：夜晚爱困爱睡，白天爱玩
+      if (dn.isNight) {
+        if (b.id === 'doze') w += 3;
+        if (b.id === 'yawn') w += 2;
+        if (b.id === 'sleep') w += 2;
+        if (b.id === 'play' || b.id === 'bounce') w -= 2;
+      } else {
+        if (b.id === 'play' || b.id === 'bounce') w += 2;
+        if (b.id === 'doze') w -= 1;
+      }
       // 需求驱动的"个性"加权：很饿想掀碗、很困想打盹、心情差闹脾气
       if (b.id === 'knockbowl' && needs.hunger < 30) w += 5;
       if (b.id === 'doze' && needs.energy < 30) w += 5;
@@ -325,8 +357,8 @@
   }
 
   function checkLongIdle() {
-    if (currentState === 'idle' && idleSince && Date.now() - idleSince > 90000) {
-      setState('sleep'); // 太安静了就睡一会
+    if (currentState === 'idle' && idleSince && Date.now() - idleSince > (dayNight().isNight ? 45000 : 90000)) {
+      setState('sleep'); // 太安静了就睡一会；夜晚更容易入睡
     }
     setTimeout(checkLongIdle, 5000);
   }
@@ -1393,7 +1425,8 @@
   function tickNeeds() {
     const sleeping = currentState === 'sleep';
     const playing = currentState === 'yarn' || currentState === 'chase';
-    if (sleeping) needs.energy = Math.min(100, needs.energy + 8);
+    // 睡眠恢复精力，夜晚睡得沉恢复更快（昼夜联动）
+    if (sleeping) needs.energy = Math.min(100, needs.energy + (dayNight().isNight ? 12 : 8));
     for (const k of Object.keys(NEED_DEFS)) {
       let d = NEED_DEFS[k].decay;
       if (playing && k === 'energy') d += 1.5;
@@ -1761,7 +1794,13 @@
   loadNeeds(); // 恢复上次的四维状态（饱食/清洁/精力/心情）
   tickNeeds();
   api.aiGetConfig().then((cfg) => { if (cfg && typeof cfg === 'object') aiConfig = cfg; }).catch(() => {}); // 恢复 AI 配置
-  setTimeout(() => showBubble(`喵~ 我是${PERS().icon}${PERS().name}猫 Coco（${PERS().desc}），也是你的桌面小助理：把文件拖到我身上我会帮你放进回收站；坐久了、天气有变我也会提醒你~`), 2500);
+  setTimeout(() => {
+    const dn = dayNight();
+    const greet = dn.isNight
+      ? `喵~ 这么晚还在忙？我是${PERS().icon}${PERS().name}猫 Coco（${PERS().desc}），困了就先眯会儿，别熬太晚~`
+      : `喵~ ${dn.phase}好！我是${PERS().icon}${PERS().name}猫 Coco（${PERS().desc}），也是你的桌面小助理：把文件拖到我身上我会帮你放进回收站；坐久了、天气有变我也会提醒你~`;
+    showBubble(greet);
+  }, 2500);
 
   // ---- 供 inventory.js 调用的能力出口（背包/商店/相册/小游戏/配饰） ----
   // 面板互斥：inventory 打开自己的面板前，关掉 pet 内置面板
@@ -1817,8 +1856,8 @@
   // 导出给 inventory.js 的能力
   window.CocoPet = {
     needs, saveNeeds, updatePanel, updateIndicator, bondLv, addBond,
-    setState, showBubble, applyInteraction, bond, personality, PERS,
-    closeAllPanels, setUiOpen, api, currentCostume, applyAccessory,
+    setState, showBubble, applyInteraction, bond, personality, PERS, dayNight,
+    closeAllPanels, setUiOpen, api, currentCostume, applyAccessory, rerollPersonality,
     get accessorized() { return currentAccessory; }
   };
   restoreAccessory();

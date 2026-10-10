@@ -9,14 +9,22 @@
   const P = window.CocoPet; // 宠物能力出口
   if (!P) return;
 
-  // 道具定义：价格(币)、使用效果、是否玩具(触发对应动画)
+  // 道具定义（按品类分组）：价格(币)、使用效果、是否玩具(toy)、玩具耗精力(energyCost)、特殊效果(special)
   const ITEMS = {
-    pasta_feast:  { icon: '🍝', name: '宽面大餐',  price: 8,  desc: '+饱食45 · +羁绊',        effect: { hunger: 45, mood: 10, bond: 6 } },
-    fish_dry:     { icon: '🐟', name: '小鱼干',    price: 5,  desc: '+饱食25 · +羁绊',        effect: { hunger: 25, mood: 6, bond: 4 } },
-    catnip:       { icon: '🌿', name: '猫薄荷',    price: 6,  desc: '+心情30 · +精力15',      effect: { mood: 30, energy: 15 } },
-    clean_spray:  { icon: '🧴', name: '清洁喷雾',  price: 6,  desc: '+清洁50',                effect: { clean: 50 } },
-    yarn_toy:     { icon: '🧶', name: '毛线球玩具', price: 7, desc: '玩一局 +心情20 · +羁绊', effect: { mood: 20, bond: 4 }, toy: 'yarn' },
-    mystery_fish: { icon: '✨', name: '传说小鱼',  price: 12, desc: '+饱食40 · +心情25 · 羁绊大涨', effect: { hunger: 40, mood: 25, bond: 12 } }
+    // —— 食物 ——
+    kibble:       { icon: '🍚', name: '普通猫粮',  price: 3,  desc: '+饱食30 · 实惠口粮',        effect: { hunger: 30, mood: 4 } },
+    pasta_feast:  { icon: '🍝', name: '宽面大餐',  price: 8,  desc: '+饱食45 · +羁绊',           effect: { hunger: 45, mood: 8, bond: 4 } },
+    snack_feast:  { icon: '🍪', name: '零食大餐',  price: 6,  desc: '少量饱食 · 羁绊大涨',        effect: { hunger: 18, mood: 6, bond: 10 } },
+    fish_dry:     { icon: '🐟', name: '小鱼干',    price: 5,  desc: '+饱食25 · +羁绊',            effect: { hunger: 25, mood: 6, bond: 5 } },
+    mystery_fish: { icon: '✨', name: '传说小鱼',  price: 12, desc: '+饱食40 · +心情25 · 羁绊大涨', effect: { hunger: 40, mood: 25, bond: 12 } },
+    // —— 玩具（恢复心情、消耗精力、触发专属动画）——
+    yarn_toy:     { icon: '🧶', name: '毛线球玩具', price: 7, desc: '玩毛线 +心情20 · 耗精力',   effect: { mood: 20, bond: 4 }, toy: 'yarn', energyCost: 8 },
+    wand_toy:     { icon: '🪶', name: '逗猫棒',    price: 8, desc: '追逗猫棒 +心情18 · 耗精力',  effect: { mood: 18, bond: 5 }, toy: 'chase', energyCost: 8 },
+    ball_toy:     { icon: '⚽', name: '小皮球',    price: 6, desc: '滚皮球 +心情16 · 耗精力',    effect: { mood: 16, bond: 4 }, toy: 'happy', energyCost: 6 },
+    // —— 消耗道具 ——
+    clean_spray:  { icon: '🧴', name: '清洁喷雾',  price: 6,  desc: '+清洁50',                    effect: { clean: 50 } },
+    catnip:       { icon: '🌿', name: '猫薄荷',    price: 6,  desc: '快速恢复精力 +心情',         effect: { energy: 35, mood: 15 } },
+    potion:       { icon: '🧪', name: '性格药剂',  price: 10, desc: '重新随机猫咪性格',           effect: {}, special: 'reroll' }
   };
 
   let S = { coins: 20, items: {}, album: [] }; // 新猫送 20 币开局
@@ -52,11 +60,21 @@
   function useItem(id) {
     if (!ITEMS[id] || countOf(id) <= 0) return;
     const it = ITEMS[id];
-    if (it.toy) P.setState(it.toy);                       // 玩具先做动画
+    // 性格药剂：重新随机性格（特殊效果，不改四维）
+    if (it.special === 'reroll') {
+      S.items[id] -= 1; if (S.items[id] <= 0) delete S.items[id];
+      save();
+      if (P) P.rerollPersonality();
+      renderBag();
+      return;
+    }
+    if (it.toy) P.setState(it.toy);                       // 玩具先做专属动画
     // 逐项生效到四维
     for (const k of ['hunger', 'clean', 'energy', 'mood']) {
       if (it.effect[k]) P.needs[k] = Math.min(100, Math.max(0, P.needs[k] + it.effect[k]));
     }
+    // 玩具消耗精力（陪玩要付出体力）
+    if (it.toy && it.energyCost) P.needs.energy = Math.max(0, P.needs.energy - it.energyCost);
     if (it.effect.bond) P.addBond('use_' + id, it.effect.bond);
     S.items[id] -= 1; if (S.items[id] <= 0) delete S.items[id];
     P.updatePanel(); P.updateIndicator(); P.saveNeeds(); save();
@@ -260,6 +278,6 @@
   // pet.js runAction 里 fishing 分支调用 CocoGame.startFishing()（见 pet.js）
 
   // 全局出口
-  window.CocoGame = { coins, addCoins, addItem, countOf, spendCoins, addAlbum, startFishing, startGame, ITEMS };
+  window.CocoGame = { coins, addCoins, addItem, countOf, spendCoins, addAlbum, useItem, startFishing, startGame, ITEMS };
   P.showBubble('🎒 新增背包 & 小鱼币系统：钓鱼、追光点、接毛线球都能赚币买道具啦~', 4200);
 })();
