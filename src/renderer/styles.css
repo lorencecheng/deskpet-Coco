@@ -36,7 +36,8 @@ html, body {
   overflow: hidden;
   user-select: none;
   -webkit-user-select: none;
-  cursor: grab;
+  /* 默认普通箭头；只有悬停猫本体的瞬间才暗示"可拖"，面板/菜单区域不显示抓取手 */
+  cursor: default;
   font-family: system-ui, "Microsoft YaHei", "PingFang SC", sans-serif;
 }
 
@@ -55,10 +56,20 @@ body {
   justify-content: center;
 }
 
-/* 开面板/菜单时：猫锚定窗口底部，面板在上方，互不遮挡 */
+/* 面板/菜单打开时：猫锚定窗口底部，面板在上方，互不遮挡 */
 body.ui-open #pet {
   align-items: flex-end;
   padding-bottom: 2px;
+}
+
+/* 拖拽中：抓取手 + 轻微抬升感 */
+body.dragging #petImg { cursor: grabbing; }
+
+/* 键盘焦点可见（无障碍）：用暖橘描边与面板令牌一致，避免被浏览器默认焦点打断主题 */
+:where(button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--r-sm);
 }
 
 #petImg {
@@ -70,6 +81,7 @@ body.ui-open #pet {
   pointer-events: auto;
   image-rendering: auto;
   -webkit-user-drag: none;
+  cursor: grab;            /* 只在猫本体悬停时暗示可拖 */
   /* 令牌驱动的暖光描边 + 柔和落地影：猫咪整体更"一体"、从桌面浮起来 */
   filter: drop-shadow(0 0 2px var(--pet-glow-a))
           drop-shadow(0 0 10px var(--pet-glow-b))

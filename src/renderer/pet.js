@@ -1291,6 +1291,7 @@
     if (!ptr.moved && Math.hypot(dx, dy) > 6) {
       ptr.moved = true;
       ptr.dragging = true;
+      document.body.classList.add('dragging'); // 光标 → grabbing
       clearTimeout(ptr.longTimer);
       api.dragStart();
       setState('drag');
@@ -1308,6 +1309,7 @@
     const wasQuick = !wasDragging && !wasPetting && (Date.now() - ptr.startT) < 320;
     ptr.down = false;
     ptr.dragging = false;
+    document.body.classList.remove('dragging');
     ptr.longHold = false;
     if (wasPetting) {
       endPetting();
