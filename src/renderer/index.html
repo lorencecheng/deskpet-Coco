@@ -9,6 +9,8 @@
 <body>
   <div id="pet">
     <img id="petImg" draggable="false" alt="咖啡猫">
+    <!-- 可穿戴配饰层（像素风小配件，叠加在猫身上） -->
+    <div id="accessory"></div>
     <div id="bubble"></div>
     <div id="indicator"></div>
     <!-- 羁绊升级庆祝彩屑层（全屏覆盖，不挡点击） -->
@@ -50,6 +52,10 @@
       <button data-action="ai">🧠 AI 设置</button>
       <button data-action="assist">💬 问问 Coco</button>
       <button data-action="bond">💞 羁绊系统</button>
+      <button data-action="bag">🎒 背包</button>
+      <button data-action="shop">🛒 商店</button>
+      <button data-action="album">📖 相册</button>
+      <button data-action="game">🎮 小游戏</button>
       <button data-action="quit">🚪 退出</button>
     </div>
     <!-- 皮肤工坊面板（默认隐藏） -->
@@ -83,6 +89,18 @@
       <div class="skin-row">
         <button id="skinRandom">🎲 随机配色</button>
         <button id="skinDefault">↩ 恢复橘猫</button>
+      </div>
+      <!-- 可穿戴配饰（像素小配件，可自由叠加） -->
+      <div class="costume-row">
+        <span class="costume-label">配饰</span>
+        <div class="costume-options" id="accessoryRow">
+          <button class="costume-btn" data-acc="none">🚫 无</button>
+          <button class="costume-btn" data-acc="hat">🎩 礼帽</button>
+          <button class="costume-btn" data-acc="bow">🎀 蝴蝶结</button>
+          <button class="costume-btn" data-acc="glasses">🕶️ 墨镜</button>
+          <button class="costume-btn" data-acc="scarf">🧣 围巾</button>
+          <button class="costume-btn" data-acc="helmet">⛑️ 安全帽</button>
+        </div>
       </div>
       <div class="skin-row"><span>配色码</span><input id="skinCode" readonly>
         <button id="skinExport">复制</button><button id="skinImport">粘贴</button></div>
@@ -149,8 +167,43 @@
       <div class="skin-hint">先选 pose，猫会在桌面摆好动作；点「拍照保存」会生成一张带羁绊/服装信息的像素档案卡，自动存进「图片/DeskPet Coco」并复制到剪贴板。</div>
       <button id="photoClose">完成 ✔</button>
     </div>
+    <!-- 背包面板：查看 / 使用道具 -->
+    <div id="bagPanel" hidden>
+      <div class="skin-title">🎒 背包</div>
+      <div class="coin-line">🐟 小鱼币：<b id="bagCoins">0</b></div>
+      <div class="inv-grid" id="bagItems"></div>
+      <div class="skin-hint">用道具直接喂养 / 陪伴 Coco，恢复数值并涨羁绊~</div>
+      <button id="bagClose">完成 ✔</button>
+    </div>
+    <!-- 商店面板：用小鱼币购买道具 -->
+    <div id="shopPanel" hidden>
+      <div class="skin-title">🛒 小鱼币商店</div>
+      <div class="coin-line">🐟 小鱼币：<b id="shopCoins">0</b></div>
+      <div class="inv-grid" id="shopItems"></div>
+      <div class="skin-hint">小鱼币来自钓鱼、追光点和接毛线球小游戏~</div>
+      <button id="shopClose">完成 ✔</button>
+    </div>
+    <!-- 相册面板：收集的回忆与成就 -->
+    <div id="albumPanel" hidden>
+      <div class="skin-title">📖 相册 · 回忆收集</div>
+      <div class="inv-grid" id="albumGrid"></div>
+      <div class="skin-hint">羁绊升级、钓到稀有鱼、小游戏高分、拍照都会留下回忆~</div>
+      <button id="albumClose">完成 ✔</button>
+    </div>
+    <!-- 小游戏面板：接毛线球（点击小球接住得分，赚小鱼币） -->
+    <div id="gamePanel" hidden>
+      <div class="skin-title">🎮 接毛线球</div>
+      <div class="coin-line">🐟 本轮得分：<b id="gameScore">0</b>　小鱼币 +<b id="gameCoin">0</b></div>
+      <canvas id="gameCanvas" width="300" height="220"></canvas>
+      <div class="skin-row">
+        <button id="gameStart">▶ 开始（60 秒）</button>
+        <button id="gameClose">关闭</button>
+      </div>
+      <div class="skin-hint">毛线球会落下来，移动鼠标接住它~ 每接住一个 +1 分，结算换小鱼币。</div>
+    </div>
   </div>
   <script src="bond.js"></script>
   <script src="pet.js"></script>
+  <script src="inventory.js"></script>
 </body>
 </html>

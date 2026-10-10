@@ -794,6 +794,7 @@
       const dataUrl = await capturePhotoCard();
       const r = await api.savePhoto(dataUrl);
       api.copyPhoto(dataUrl);
+      if (window.CocoGame) window.CocoGame.addAlbum('photo', '拍了一张纪念照', '📸');
       showBubble(r && r.path ? `照片已存：${r.path}（已复制到剪贴板）` : '照片已复制到剪贴板~', 5200);
     } catch {
       showBubble('拍照失败……再试一次~', 3000);
@@ -1010,6 +1011,7 @@
       showBubble(`💞 羁绊升级：${info.name}！${bond.UPGRADE_MSG[info.lv] || ''}`, 4600);
       updateIndicator(); updatePanel();
       celebrate(); // 升级爽感：猫蹦跳 + 全屏掉毛线球彩屑
+      if (window.CocoGame) window.CocoGame.addAlbum('bond', `羁绊升到「${info.name}」`, '💞');
     }
   }
   // 羁绊升级全屏庆祝：猫连蹦两下 + 毛线球/彩色像素点从头顶散开飘落
@@ -1464,6 +1466,7 @@
     if (!STATES[name]) return;
     if (name === 'chase') { startChase(); return; }
     if (name === 'dotchase') { startDotChase(); return; }
+    if (name === 'fishing') { if (window.CocoGame) window.CocoGame.startFishing(); else { applyInteraction('fishing'); setState('fishing'); } return; }
     if (currentState === 'sleep' && name !== 'sleep') setState('idle'); // 先唤醒
     applyInteraction(name);
     setState(name);
@@ -1759,4 +1762,64 @@
   tickNeeds();
   api.aiGetConfig().then((cfg) => { if (cfg && typeof cfg === 'object') aiConfig = cfg; }).catch(() => {}); // 恢复 AI 配置
   setTimeout(() => showBubble(`喵~ 我是${PERS().icon}${PERS().name}猫 Coco（${PERS().desc}），也是你的桌面小助理：把文件拖到我身上我会帮你放进回收站；坐久了、天气有变我也会提醒你~`), 2500);
+
+  // ---- 供 inventory.js 调用的能力出口（背包/商店/相册/小游戏/配饰） ----
+  // 面板互斥：inventory 打开自己的面板前，关掉 pet 内置面板
+  function closeAllPanels() {
+    hideMenu();
+    if (!skinPanel.hidden) closeSkinPanel();
+    if (!photoPanel.hidden) closePhotoPanel();
+    if (!aiPanel.hidden) closeAiPanel();
+    if (!assistPanel.hidden) closeAssistPanel();
+    if (!needsPanel.hidden) { needsPanel.hidden = true; setUiOpen(false); api.menuResize(false); }
+  }
+  // 可穿戴配饰：像素小配件叠加在猫身上（独立于服装，可自由组合）
+  const ACCESSORIES = {
+    hat:     { emoji: '🎩', pos: 'top:-16px; left:50%; transform:translateX(-50%);', size: '30px' },
+    bow:     { emoji: '🎀', pos: 'top:8px; right:-6px;', size: '22px' },
+    glasses: { emoji: '🕶️', pos: 'top:34px; left:50%; transform:translateX(-50%);', size: '26px' },
+    scarf:   { emoji: '🧣', pos: 'top:56px; left:50%; transform:translateX(-50%);', size: '30px' },
+    helmet:  { emoji: '⛑️', pos: 'top:-14px; left:50%; transform:translateX(-50%);', size: '30px' }
+  };
+  let currentAccessory = null;
+  function applyAccessory(key) {
+    const acc = document.getElementById('accessory');
+    if (!acc) return;
+    acc.innerHTML = '';
+    if (!key || key === 'none' || !ACCESSORIES[key]) { currentAccessory = null; }
+    else {
+      const A = ACCESSORIES[key];
+      const span = document.createElement('span');
+      span.textContent = A.emoji;
+      span.style.cssText = `position:absolute;${A.pos}font-size:${A.size};z-index:8;pointer-events:none;filter:drop-shadow(0 1px 1px rgba(0,0,0,.35));`;
+      acc.appendChild(span);
+      currentAccessory = key;
+    }
+    try { localStorage.setItem('coco.accessory', currentAccessory || ''); } catch {}
+    syncAccessoryButtons();
+  }
+  function restoreAccessory() {
+    let key = null;
+    try { key = localStorage.getItem('coco.accessory'); } catch {}
+    applyAccessory(key);
+  }
+  function syncAccessoryButtons() {
+    document.querySelectorAll('#accessoryRow .costume-btn').forEach((b) => {
+      b.classList.toggle('active', (b.dataset.acc || 'none') === (currentAccessory || 'none'));
+    });
+  }
+  document.querySelectorAll('#accessoryRow .costume-btn').forEach((btn) => {
+    btn.addEventListener('click', () => applyAccessory(btn.dataset.acc));
+  });
+
+  // 追光点结算由 inventory.js 监听 onDotChaseDone 处理（货币奖励）
+
+  // 导出给 inventory.js 的能力
+  window.CocoPet = {
+    needs, saveNeeds, updatePanel, updateIndicator, bondLv, addBond,
+    setState, showBubble, applyInteraction, bond, personality, PERS,
+    closeAllPanels, setUiOpen, api, currentCostume, applyAccessory,
+    get accessorized() { return currentAccessory; }
+  };
+  restoreAccessory();
 })();
