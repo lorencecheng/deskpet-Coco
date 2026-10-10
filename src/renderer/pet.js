@@ -1698,7 +1698,18 @@
   document.addEventListener('click', (e) => {
     if (!menu.contains(e.target) && !skinPanel.contains(e.target)) hideMenu();
   });
-  menu.querySelectorAll('button').forEach((btn) => {
+  // 分组头：点击就地展开/收起（最多同时展开一组），箭头方向反馈
+  menu.querySelectorAll('.menu-group-head').forEach((head) => {
+    head.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const g = head.closest('.menu-group');
+      const wasOpen = g.classList.contains('open');
+      menu.querySelectorAll('.menu-group.open').forEach((o) => o.classList.remove('open'));
+      if (!wasOpen) g.classList.add('open');
+    });
+  });
+  // 动作按钮：走 runAction（quick 区与分组内统一）
+  menu.querySelectorAll('button[data-action]').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const a = btn.dataset.action;

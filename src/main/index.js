@@ -617,7 +617,7 @@ function registerIpc() {
 
   // 右键菜单开/关：向上扩窗以容纳全部选项，窗口底边固定（猫在屏幕上的位置不动）
   let menuExpanded = false;
-  const MENU_OPEN_H = 400; // 菜单展开时窗口高度
+  const MENU_OPEN_H = 486; // 菜单展开时窗口高度（快捷区 + 最多展开一个分组也能放下）
   ipcMain.on('pet:menu-resize', (_e, open) => {
     if (!win || win.isDestroyed()) return;
     if (!!open === menuExpanded) return;

@@ -31,32 +31,48 @@
       <div class="need-row"><span>😴 精力</span><div class="bar"><i id="need-energy"></i></div></div>
       <div class="need-row"><span>🎈 心情</span><div class="bar"><i id="need-mood"></i></div></div>
     </div>
-    <!-- 右键动作菜单（默认隐藏） -->
+    <!-- 右键动作菜单（默认隐藏）：快捷动作 + 分级收纳，不滚动一目了然 -->
     <div id="menu" hidden>
       <div class="menu-title">🐱 咖啡猫 · 菜单</div>
-      <button data-action="status">📊 状态</button>
-      <button data-action="walk">🚶 桌面巡游</button>
-      <button data-action="happy">😺 说嗨</button>
-      <button data-action="drink">☕ 喝咖啡</button>
-      <button data-action="feed">🍝 喂宽面</button>
-      <button data-action="yarn">🧶 玩毛线球</button>
-      <button data-action="chase">🐱 追光标</button>
-      <button data-action="dotchase">🐾 逗猫·追光点</button>
-      <button data-action="bath">🛁 洗澡</button>
-      <button data-action="fishing">🎣 钓鱼</button>
-      <button data-action="scratch">🐾 抓痒</button>
-      <button data-action="weather">🌤 查看天气</button>
-      <button data-action="sleep">😴 睡觉</button>
-      <button data-action="skin">🎨 皮肤工坊</button>
-      <button data-action="photo">📸 拍照模式</button>
-      <button data-action="ai">🧠 AI 设置</button>
-      <button data-action="assist">💬 问问 Coco</button>
-      <button data-action="bond">💞 羁绊系统</button>
-      <button data-action="bag">🎒 背包</button>
-      <button data-action="shop">🛒 商店</button>
-      <button data-action="album">📖 相册</button>
-      <button data-action="game">🎮 小游戏</button>
-      <button data-action="quit">🚪 退出</button>
+      <div class="menu-quick">
+        <button data-action="feed" title="喂宽面">🍝 喂</button>
+        <button data-action="yarn" title="玩毛线球">🧶 玩</button>
+        <button data-action="bath" title="洗澡">🛁 洗</button>
+        <button data-action="scratch" title="抓痒">🐾 挠</button>
+        <button data-action="dotchase" title="逗猫·追光点">🐭 逗</button>
+        <button data-action="happy" title="说嗨">😺 嗨</button>
+        <button data-action="sleep" title="睡觉">😴 睡</button>
+      </div>
+      <div class="menu-group">
+        <button class="menu-group-head" data-group="play" type="button">🎮 玩更多 <i>▾</i></button>
+        <div class="menu-group-body" data-body="play">
+          <button data-action="chase">🐱 追光标</button>
+          <button data-action="fishing">🎣 钓鱼</button>
+          <button data-action="drink">☕ 喝咖啡</button>
+          <button data-action="walk">🚶 桌面巡游</button>
+          <button data-action="game">🎮 接毛线球</button>
+        </div>
+        <button class="menu-group-head" data-group="dress" type="button">🎨 装扮 <i>▾</i></button>
+        <div class="menu-group-body" data-body="dress">
+          <button data-action="skin">🎨 皮肤工坊</button>
+          <button data-action="photo">📸 拍照</button>
+          <button data-action="bag">🎒 背包</button>
+          <button data-action="shop">🛒 商店</button>
+        </div>
+        <button class="menu-group-head" data-group="me" type="button">📊 我的猫咪 <i>▾</i></button>
+        <div class="menu-group-body" data-body="me">
+          <button data-action="status">📊 状态</button>
+          <button data-action="bond">💞 羁绊</button>
+          <button data-action="album">📖 相册</button>
+        </div>
+        <button class="menu-group-head" data-group="more" type="button">⚙️ 更多 <i>▾</i></button>
+        <div class="menu-group-body" data-body="more">
+          <button data-action="ai">🧠 AI 设置</button>
+          <button data-action="assist">💬 问问 Coco</button>
+          <button data-action="weather">🌤 天气</button>
+          <button data-action="quit">🚪 退出</button>
+        </div>
+      </div>
     </div>
     <!-- 皮肤工坊面板（默认隐藏） -->
     <div id="skinPanel" hidden>

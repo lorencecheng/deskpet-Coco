@@ -238,47 +238,94 @@ body.ui-open #pet {
   z-index: 20;
   display: flex;
   flex-direction: column;
-  gap: 1px;
-  min-width: 168px;
-  max-height: 300px;   /* 选项很多时可滚动，保证"右键全部显示"不因高度被截断 */
-  overflow-y: auto;
+  gap: 4px;
+  min-width: 176px;
   background: var(--panel-grad);
   border: 1px solid var(--panel-line);
   border-radius: var(--r-md);
-  padding: 5px;
+  padding: 6px;
   box-shadow: var(--shadow);
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255, 190, 120, 0.4) transparent;
 }
 #menu[hidden] { display: none; }
 .menu-title {
   font-size: 11px;
   font-weight: 700;
   color: var(--gold);
-  padding: 2px 9px 5px;
+  padding: 1px 6px 4px;
   border-bottom: 1px solid var(--panel-line-soft);
-  margin-bottom: 3px;
+  margin-bottom: 2px;
   background: var(--gold-grad);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
-#menu button {
+/* 快捷动作区：两列网格，高频操作一眼可见 */
+.menu-quick {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 3px;
+}
+.menu-quick button {
+  border: none;
+  background: var(--accent-soft);
+  color: var(--txt);
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+  padding: 6px 2px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+.menu-quick button:hover {
+  background: var(--accent-strong);
+  transform: translateY(-1px);
+}
+/* 分级收纳区：分组头 + 可折叠子项 */
+.menu-group { display: flex; flex-direction: column; gap: 2px; }
+.menu-group-head {
+  border: none;
+  background: var(--accent-soft);
+  color: var(--gold);
+  font-size: 11px;
+  font-weight: 700;
+  text-align: left;
+  padding: 5px 8px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.menu-group-head i {
+  font-style: normal;
+  font-size: 10px;
+  color: var(--txt-dim);
+  transition: transform 0.15s ease;
+}
+.menu-group.open .menu-group-head i { transform: rotate(180deg); }
+.menu-group-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.18s ease;
+}
+.menu-group.open .menu-group-body { max-height: 120px; }
+.menu-group-body button {
   border: none;
   background: transparent;
   color: var(--txt);
-  font-size: 12px;
+  font-size: 11px;
   text-align: left;
-  padding: 4px 10px;
+  padding: 4px 8px;
   border-radius: var(--r-sm);
   cursor: pointer;
   white-space: nowrap;
-  transition: background 0.15s ease, transform 0.1s ease;
+  transition: background 0.15s ease;
 }
-#menu button:hover {
-  background: var(--accent-strong);
-  transform: translateX(2px);
-}
+.menu-group-body button:hover { background: var(--accent-strong); }
 
 /* ===== 通用面板卡片（皮肤工坊 / AI 设置 / 问问 Coco 共用底座） ===== */
 #skinPanel, #aiPanel, #photoPanel {
