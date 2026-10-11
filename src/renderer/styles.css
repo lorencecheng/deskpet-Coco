@@ -61,8 +61,10 @@ html, body {
   /* 默认普通箭头；只有悬停猫本体的瞬间才暗示"可拖"，面板/菜单区域不显示抓取手 */
   cursor: default;
   font-family: "CocoPixel", "Courier New", "Microsoft YaHei", monospace;
-  font-size: 12px;            /* 像素字体黄金字号（整数像素对齐，不模糊） */
+  font-size: 16px;            /* 像素字体放大到 16px，字更大更清晰；禁抗锯齿保持像素块锐利 */
   letter-spacing: 0.3px;
+  -webkit-font-smoothing: none;
+  text-rendering: optimizeSpeed;
 }
 
 body {
@@ -80,10 +82,13 @@ body {
   justify-content: center;
 }
 
-/* 面板/菜单打开时：猫锚定窗口底部，面板在上方，互不遮挡 */
+/* 面板/菜单打开时：猫锚定窗口底部并临时缩小到约 30% 高，完整可见，面板在上方不遮挡 */
 body.ui-open #pet {
   align-items: flex-end;
   padding-bottom: 2px;
+}
+body.ui-open #petImg {
+  max-height: 30vh;
 }
 
 /* 显示气泡时：气泡贴窗口顶部，猫临时贴底，二者分离不遮挡 */
@@ -182,7 +187,7 @@ body.dragging #petImg { cursor: grabbing; }
   display: flex;
   flex-direction: column;
   gap: 4px;
-  min-width: 188px;
+  min-width: 200px;
   padding: 6px;
   /* 自适应防溢出：任何窗口尺寸下菜单都完整可见（超高/超宽内部滚动兜底） */
   box-sizing: border-box;
@@ -193,7 +198,7 @@ body.dragging #petImg { cursor: grabbing; }
 }
 #menu[hidden] { display: none; }
 .menu-title {
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 700;
   color: var(--px-yellow);
   padding: 2px 6px 5px;
@@ -206,7 +211,7 @@ body.dragging #petImg { cursor: grabbing; }
   border: 2px solid var(--px-stroke);
   background: var(--px-graybtn);
   color: var(--px-white);
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 600;
   text-align: center;
   padding: 6px 2px;
@@ -223,7 +228,7 @@ body.dragging #petImg { cursor: grabbing; }
   border: 2px solid var(--px-stroke);
   background: var(--px-yellow);
   color: #141a10;
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 700;
   text-align: left;
   padding: 5px 8px;
@@ -235,7 +240,7 @@ body.dragging #petImg { cursor: grabbing; }
   box-shadow: 2px 2px 0 0 var(--px-shadow);
 }
 .menu-group-head:hover { background: var(--px-yellow-hi); }
-.menu-group-head i { font-style: normal; font-size: 12px; color: #141a10; transition: transform 0.15s ease; }
+.menu-group-head i { font-style: normal; font-size: 16px; color: #141a10; transition: transform 0.15s ease; }
 .menu-group.open .menu-group-head i { transform: rotate(180deg); }
 .menu-group-body {
   display: grid;
@@ -250,7 +255,7 @@ body.dragging #petImg { cursor: grabbing; }
   border: 2px solid var(--px-stroke);
   background: var(--px-bg-2);
   color: var(--px-white);
-  font-size: 12px;
+  font-size: 16px;
   text-align: left;
   padding: 4px 8px;
   border-radius: 0;
@@ -265,7 +270,7 @@ body.dragging #petImg { cursor: grabbing; }
   border: 2px solid var(--px-stroke);
   background: var(--px-bg-deep);
   color: var(--px-red);
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 600;
   text-align: center;
   padding: 5px;
@@ -280,12 +285,17 @@ body.dragging #petImg { cursor: grabbing; }
   left: 6px;
   top: 6px;
   z-index: 25;
-  width: 258px;
+  width: 320px;               /* 16px 字号下加宽，按钮/文字不挤压 */
+  box-sizing: border-box;
   padding: 12px;
+  /* 面板限高 + 内部滚动：内容再多也不裁切（"完成"按钮始终可达），底部留出猫区避免遮挡 */
+  max-height: calc(100vh - 34vh);
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 #skinPanel[hidden], #photoPanel[hidden], #bagPanel[hidden], #albumPanel[hidden] { display: none; }
 .skin-title {
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 700;
   letter-spacing: 0.5px;
   color: var(--px-yellow);
@@ -298,7 +308,7 @@ body.dragging #petImg { cursor: grabbing; }
   border: 2px solid var(--px-stroke);
   background: var(--px-graybtn);
   color: var(--px-white);
-  font-size: 12px;
+  font-size: 16px;
   border-radius: 0;
   padding: 3px 8px;
   cursor: pointer;
@@ -306,7 +316,7 @@ body.dragging #petImg { cursor: grabbing; }
   transition: background 0.1s ease, transform 0.05s ease;
 }
 .skin-presets button:hover { background: var(--px-graybtn-hi); transform: translate(-1px,-1px); }
-.skin-row { display: flex; align-items: center; gap: 6px; margin: 7px 0; font-size: 12px; }
+.skin-row { display: flex; align-items: center; gap: 6px; margin: 7px 0; font-size: 16px; }
 .skin-row span { width: 46px; flex-shrink: 0; color: var(--px-gray); }
 .skin-row input[type='color'] {
   width: 34px;
@@ -318,24 +328,24 @@ body.dragging #petImg { cursor: grabbing; }
   cursor: pointer;
 }
 .skin-row input#skinCode {
-  flex: 1; font-size: 12px;
+  flex: 1; font-size: 16px;
   background: var(--px-bg-deep); color: var(--px-white);
   border: 2px solid var(--px-stroke); border-radius: 0; padding: 3px 5px;
 }
 .skin-row input[type='text'], .skin-row input[type='password'] {
-  flex: 1; min-width: 0; font-size: 12px;
+  flex: 1; min-width: 0; font-size: 16px;
   background: var(--px-bg-deep); color: var(--px-white);
   border: 2px solid var(--px-stroke); border-radius: 0; padding: 3px 5px;
   outline: none;
 }
 .skin-row input[type='text']:focus, .skin-row input[type='password']:focus, .skin-row input#skinCode:focus { border-color: var(--px-yellow); }
 .skin-row select {
-  flex: 1; font-size: 12px;
+  flex: 1; font-size: 16px;
   background: var(--px-bg-deep); color: var(--px-white);
   border: 2px solid var(--px-stroke); border-radius: 0; padding: 3px 4px;
 }
 .skin-row textarea {
-  flex: 1; min-width: 0; font-size: 12px; resize: vertical;
+  flex: 1; min-width: 0; font-size: 16px; resize: vertical;
   background: var(--px-bg-deep); color: var(--px-white);
   border: 2px solid var(--px-stroke); border-radius: 0; padding: 4px 5px;
   font-family: inherit; outline: none;
@@ -345,7 +355,7 @@ body.dragging #petImg { cursor: grabbing; }
   border: 2px solid var(--px-stroke);
   background: var(--px-graybtn);
   color: var(--px-white);
-  font-size: 12px;
+  font-size: 16px;
   border-radius: 0;
   padding: 3px 7px;
   cursor: pointer;
@@ -353,16 +363,16 @@ body.dragging #petImg { cursor: grabbing; }
   transition: background 0.1s ease, transform 0.05s ease;
 }
 .skin-row button:hover { background: var(--px-graybtn-hi); transform: translate(-1px,-1px); }
-.skin-hint { font-size: 12px; color: var(--px-gray); margin: 7px 0; line-height: 1.5; }
+.skin-hint { font-size: 16px; color: var(--px-gray); margin: 7px 0; line-height: 1.5; }
 /* 皮肤工坊 · 服装区 */
-.costume-row { display: flex; align-items: center; gap: 6px; margin: 7px 0; font-size: 12px; }
+.costume-row { display: flex; align-items: center; gap: 6px; margin: 7px 0; font-size: 16px; }
 .costume-label { width: 46px; flex-shrink: 0; color: var(--px-gray); }
 .costume-options { display: flex; flex-wrap: wrap; gap: 5px; flex: 1; }
 .costume-btn {
   border: 2px solid var(--px-stroke);
   background: var(--px-graybtn);
   color: var(--px-white);
-  font-size: 12px;
+  font-size: 16px;
   border-radius: 0;
   padding: 4px 8px;
   cursor: pointer;
@@ -382,7 +392,7 @@ body.dragging #petImg { cursor: grabbing; }
   border: 2px solid var(--px-stroke);
   background: var(--px-graybtn);
   color: var(--px-white);
-  font-size: 12px;
+  font-size: 16px;
   border-radius: 0;
   padding: 5px 9px;
   cursor: pointer;
@@ -392,7 +402,7 @@ body.dragging #petImg { cursor: grabbing; }
 .pose-btn:hover { background: var(--px-graybtn-hi); transform: translate(-1px,-1px); }
 .pose-btn.active { background: var(--px-yellow); color: #141a10; box-shadow: none; }
 .photo-preview {
-  font-size: 12px;
+  font-size: 16px;
   color: var(--px-yellow);
   padding: 6px 8px;
   margin: 6px 0;
@@ -407,7 +417,7 @@ button.photo-take, #skinClose, #photoClose, #bagClose, #albumClose {
   background: var(--px-yellow);
   color: #141a10;
   font-weight: 700;
-  font-size: 12px;
+  font-size: 16px;
   padding: 5px 10px;
   border-radius: 0;
   cursor: pointer;
@@ -438,7 +448,7 @@ button.photo-take:active, #skinClose:active, #photoClose:active, #bagClose:activ
   border-radius: 0;
   box-shadow: 3px 3px 0 0 var(--px-shadow);
   padding: 6px 12px;
-  font-size: 12px;
+  font-size: 16px;
   line-height: 1.45;
   color: var(--px-white);
   max-width: 94%;
@@ -486,12 +496,17 @@ button.photo-take:active, #skinClose:active, #photoClose:active, #bagClose:activ
   top: 6px;
   z-index: 20;
   width: 172px;
+  box-sizing: border-box;
   padding: 10px 11px;
+  /* 限高 + 滚动，内容再多也不盖住猫 */
+  max-height: calc(100vh - 34vh);
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 #needsPanel[hidden] { display: none; }
 .panel-head { margin-bottom: 8px; padding-bottom: 6px; border-bottom: 2px solid var(--px-line); }
 .panel-title {
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 700;
   letter-spacing: 0.5px;
   color: var(--px-yellow);
@@ -506,7 +521,7 @@ button.photo-take:active, #skinClose:active, #photoClose:active, #bagClose:activ
 }
 .bond-badge { display: flex; align-items: center; gap: 7px; margin-bottom: 5px; }
 .bond-badge span { font-size: 17px; line-height: 1; }
-.bond-badge b { font-size: 12px; color: var(--px-yellow); }
+.bond-badge b { font-size: 16px; color: var(--px-yellow); }
 /* 分段像素进度条：外层深蓝+黑描边，内层黄/绿分段块 */
 .bond-bar {
   height: 11px;
@@ -522,10 +537,10 @@ button.photo-take:active, #skinClose:active, #photoClose:active, #bagClose:activ
   background: repeating-linear-gradient(90deg, var(--px-yellow) 0 7px, var(--px-yellow-lo) 7px 9px);
   transition: width 0.6s ease;
 }
-.bond-sub { font-size: 12px; color: var(--px-gray); margin-top: 4px; min-height: 13px; }
+.bond-sub { font-size: 16px; color: var(--px-gray); margin-top: 4px; min-height: 13px; }
 .bond-abilities { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
 .bond-chip {
-  font-size: 12px;
+  font-size: 16px;
   color: var(--px-gray);
   background: var(--px-bg-deep);
   border: 1px solid var(--px-line);
@@ -533,7 +548,7 @@ button.photo-take:active, #skinClose:active, #photoClose:active, #bagClose:activ
   padding: 1px 5px;
 }
 .bond-chip.hi { color: var(--px-yellow); border-color: var(--px-yellow-lo); background: var(--px-bg-2); }
-.need-row { display: flex; align-items: center; gap: 6px; margin: 4px 0; font-size: 12px; }
+.need-row { display: flex; align-items: center; gap: 6px; margin: 4px 0; font-size: 16px; }
 .need-row span { width: 44px; flex-shrink: 0; color: var(--px-gray); }
 .need-row .bar {
   flex: 1;
@@ -575,15 +590,15 @@ button.photo-take:active, #skinClose:active, #photoClose:active, #bagClose:activ
   text-align: center;
 }
 .inv-icon { font-size: 22px; }
-.inv-name { color: var(--px-white); font-size: 12px; font-weight: 700; }
-.inv-count { color: var(--px-yellow); font-size: 12px; font-weight: 700; }
-.inv-desc { color: var(--px-gray); font-size: 12px; line-height: 1.4; min-height: 26px; }
+.inv-name { color: var(--px-white); font-size: 16px; font-weight: 700; }
+.inv-count { color: var(--px-yellow); font-size: 16px; font-weight: 700; }
+.inv-desc { color: var(--px-gray); font-size: 16px; line-height: 1.4; min-height: 26px; }
 .inv-card button {
   border: 2px solid var(--px-stroke);
   background: var(--px-yellow);
   color: #141a10;
   font-weight: 700;
-  font-size: 12px;
+  font-size: 16px;
   border-radius: 0;
   padding: 4px 14px;
   cursor: pointer;
@@ -606,8 +621,8 @@ button.photo-take:active, #skinClose:active, #photoClose:active, #bagClose:activ
   text-align: center;
 }
 .album-icon { font-size: 20px; }
-.album-title { color: var(--px-white); font-size: 12px; font-weight: 700; }
-.album-date { color: var(--px-soft); font-size: 12px; }
+.album-title { color: var(--px-white); font-size: 16px; font-weight: 700; }
+.album-date { color: var(--px-soft); font-size: 16px; }
 
 /* 像素滚动条：无圆角、深蓝轨道、黄滑块 */
 .inv-grid::-webkit-scrollbar { width: 10px; }
