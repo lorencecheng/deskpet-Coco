@@ -12,7 +12,7 @@ app.commandLine.appendSwitch('force-device-scale-factor', '1');
 
 // 窗口尺寸：基础方块 + 可缩放（原 320 → 256，整体缩小 20%；支持 70%/100%/130%）
 let petW = 256;
-let petH = 256;
+let petH = 296;
 let petSize = 1;      // 尺寸预设：0.7 / 1 / 1.3
 let petOpacity = 1;   // 透明度：1 / 0.8 / 0.6
 
@@ -93,7 +93,7 @@ function loadPrefs() {
     }
   } catch {}
   petW = Math.max(120, Math.round(256 * petSize));
-  petH = Math.max(120, Math.round(256 * petSize));
+  petH = Math.max(120, Math.round(296 * petSize));   // 高度比宽度高，保证走路/站立姿态完整不裁
 }
 function savePrefs() {
   try {

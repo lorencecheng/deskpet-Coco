@@ -19,13 +19,13 @@
   const STATES = {
     idle:        { duration: null, cls: 'pet-idle', fps: 2 },
     'idle-blink':{ duration: 280, cls: 'pet-idle' },
-    walk:        { duration: null, cls: 'pet-walk', fps: 3 },
+    walk:        { duration: null, cls: 'pet-walk', fps: 7 },   // 7fps：帧动画主导走路，脚交替清晰流畅
     stretch:     { duration: 2600, cls: 'pet-stretch', fps: 2 },
     lookaround:  { duration: 2200, cls: 'pet-lookaround', fps: 2 },
     groom:       { duration: 3400, cls: 'pet-groom', fps: 2 },   // 洗脸舔爪
     yawn:        { duration: 2800, cls: 'pet-yawn', fps: 2 },    // 打哈欠犯困
     yarn:        { duration: 4500, cls: 'pet-yarn', fps: 3 },
-    chase:       { duration: null, cls: 'pet-chase', sprite: 'walk', fps: 5 },
+    chase:       { duration: null, cls: 'pet-chase', sprite: 'walk', fps: 7 },
     happy:       { duration: 2000, cls: 'pet-happy', fps: 2 },
     feed:        { duration: 4200, cls: 'pet-feed', fps: 2 },
     bath:        { duration: 5200, cls: 'pet-bath', fps: 2 },
@@ -131,14 +131,24 @@
     animFrames = frames || null;
     animFps = fps || ANIM_FPS;
     petImg.src = frameSrc(frames[0]);
-    if (document.hidden || document.hasFocus() === false) return; // 不可见时只放首帧，不启定时器
+    // 窗口真正隐藏（最小化/切走标签）才不启定时器省电；
+    // 但巡游/追光点走路（walk/chase）即使失焦也要持续迈步——之前失焦即停定时器，
+    // 是"走路/呼吸退化成单帧 + CSS 摇动、脚不动"的真正根因。
+    if (document.hidden) return;
+    const roaming = currentState === 'walk' || currentState === 'chase';
+    if (!roaming && document.hasFocus() === false) return;
     animTimer = setInterval(() => {
       frameIdx = (frameIdx + 1) % frames.length;
       petImg.src = frameSrc(frames[frameIdx]);
     }, 1000 / animFps);
   }
   function pauseIfHidden() {
-    if (document.hidden || document.hasFocus() === false) stopAnim();
+    // 窗口真正隐藏（最小化/切走标签）才停动画省电；
+    // 但巡游/追光点走路（walk/chase）后台也要持续迈步，不能被 blur 停掉，
+    // 否则巡游就只剩 CSS 摇动、脚不动——这是之前"走路像幻灯片/不自然"的根因。
+    if (document.hidden) { stopAnim(); return; }
+    if (currentState === 'walk' || currentState === 'chase') return;
+    if (document.hasFocus() === false) stopAnim();
   }
   function resumeIfVisible() {
     if (!document.hidden && document.hasFocus() && animFrames && animFrames.length > 1 && !animTimer) {

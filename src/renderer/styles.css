@@ -129,8 +129,8 @@ body.dragging #petImg { cursor: grabbing; }
 /* ===== 灵动动画（CSS 让单帧精灵也“活”起来；纯位移/旋转，不动描边）===== */
 @keyframes bob { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-6px);} }
 .pet-idle { animation: bob 2.6s ease-in-out infinite; }
-@keyframes stroll { 0%,100%{transform:scaleX(var(--facing,1)) translateY(0) rotate(-2deg);} 50%{transform:scaleX(var(--facing,1)) translateY(-5px) rotate(2deg);} }
-.pet-walk { animation: stroll 0.9s ease-in-out infinite; }
+@keyframes stroll { 0%,100%{transform:scaleX(var(--facing,1)) translateY(0);} 50%{transform:scaleX(var(--facing,1)) translateY(-2px);} }
+.pet-walk { animation: stroll 0.55s ease-in-out infinite; }
 .pet-facing-left { --facing: -1; }
 @keyframes cocoJump { 0%,100%{transform:scaleX(var(--facing,1)) translateY(0);} 40%{transform:scaleX(var(--facing,1)) translateY(-16px) scale(1.06);} 70%{transform:scaleX(var(--facing,1)) translateY(0) scale(0.98);} }
 .pet-jump { animation: cocoJump 0.6s ease; }
