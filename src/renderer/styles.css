@@ -2,6 +2,22 @@
  * 规范源自参考：8px 网格 · 2/4px 黑描边 · 阶梯式转角(直角+硬投影) · 12 色有限色板 · 最近邻整数缩放 · 交互状态成套
  */
 
+/* ===== 像素字体：Fusion Pixel 12px（缝合像素，OFL 开源许可，随应用打包） =====
+ * 中文用 zh_hans，拉丁/数字用 latin；统一 12px 为像素黄金字号（整数缩放不模糊） */
+@font-face {
+  font-family: "CocoPixel";
+  src: url("assets/fonts/pixel-zh.woff2") format("woff2");
+  font-weight: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: "CocoPixel";
+  src: url("assets/fonts/pixel-latin.woff2") format("woff2");
+  font-weight: normal;
+  font-display: block;
+  unicode-range: U+0000-00FF, U+0100-024F;  /* 仅拉丁字符走此面，其余回退 zh_hans */
+}
+
 /* ===== 设计令牌：12 色有限像素色板（改这里，全 UI 一键换肤） ===== */
 :root {
   /* 深蓝 RPG 界面底 */
@@ -44,7 +60,8 @@ html, body {
   -webkit-user-select: none;
   /* 默认普通箭头；只有悬停猫本体的瞬间才暗示"可拖"，面板/菜单区域不显示抓取手 */
   cursor: default;
-  font-family: "Courier New", "Microsoft YaHei", monospace;
+  font-family: "CocoPixel", "Courier New", "Microsoft YaHei", monospace;
+  font-size: 12px;            /* 像素字体黄金字号（整数像素对齐，不模糊） */
   letter-spacing: 0.3px;
 }
 
@@ -174,7 +191,7 @@ body.dragging #petImg { cursor: grabbing; }
   border: 2px solid var(--px-stroke);
   background: var(--px-graybtn);
   color: var(--px-white);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   text-align: center;
   padding: 6px 2px;
@@ -191,7 +208,7 @@ body.dragging #petImg { cursor: grabbing; }
   border: 2px solid var(--px-stroke);
   background: var(--px-yellow);
   color: #141a10;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   text-align: left;
   padding: 5px 8px;
@@ -203,7 +220,7 @@ body.dragging #petImg { cursor: grabbing; }
   box-shadow: 2px 2px 0 0 var(--px-shadow);
 }
 .menu-group-head:hover { background: var(--px-yellow-hi); }
-.menu-group-head i { font-style: normal; font-size: 10px; color: #141a10; transition: transform 0.15s ease; }
+.menu-group-head i { font-style: normal; font-size: 12px; color: #141a10; transition: transform 0.15s ease; }
 .menu-group.open .menu-group-head i { transform: rotate(180deg); }
 .menu-group-body {
   display: grid;
@@ -218,7 +235,7 @@ body.dragging #petImg { cursor: grabbing; }
   border: 2px solid var(--px-stroke);
   background: var(--px-bg-2);
   color: var(--px-white);
-  font-size: 11px;
+  font-size: 12px;
   text-align: left;
   padding: 4px 8px;
   border-radius: 0;
@@ -233,7 +250,7 @@ body.dragging #petImg { cursor: grabbing; }
   border: 2px solid var(--px-stroke);
   background: var(--px-bg-deep);
   color: var(--px-red);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   text-align: center;
   padding: 5px;
@@ -253,7 +270,7 @@ body.dragging #petImg { cursor: grabbing; }
 }
 #skinPanel[hidden], #photoPanel[hidden], #bagPanel[hidden], #albumPanel[hidden] { display: none; }
 .skin-title {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.5px;
   color: var(--px-yellow);
@@ -286,24 +303,24 @@ body.dragging #petImg { cursor: grabbing; }
   cursor: pointer;
 }
 .skin-row input#skinCode {
-  flex: 1; font-size: 11px;
+  flex: 1; font-size: 12px;
   background: var(--px-bg-deep); color: var(--px-white);
   border: 2px solid var(--px-stroke); border-radius: 0; padding: 3px 5px;
 }
 .skin-row input[type='text'], .skin-row input[type='password'] {
-  flex: 1; min-width: 0; font-size: 11px;
+  flex: 1; min-width: 0; font-size: 12px;
   background: var(--px-bg-deep); color: var(--px-white);
   border: 2px solid var(--px-stroke); border-radius: 0; padding: 3px 5px;
   outline: none;
 }
 .skin-row input[type='text']:focus, .skin-row input[type='password']:focus, .skin-row input#skinCode:focus { border-color: var(--px-yellow); }
 .skin-row select {
-  flex: 1; font-size: 11px;
+  flex: 1; font-size: 12px;
   background: var(--px-bg-deep); color: var(--px-white);
   border: 2px solid var(--px-stroke); border-radius: 0; padding: 3px 4px;
 }
 .skin-row textarea {
-  flex: 1; min-width: 0; font-size: 11px; resize: vertical;
+  flex: 1; min-width: 0; font-size: 12px; resize: vertical;
   background: var(--px-bg-deep); color: var(--px-white);
   border: 2px solid var(--px-stroke); border-radius: 0; padding: 4px 5px;
   font-family: inherit; outline: none;
@@ -313,7 +330,7 @@ body.dragging #petImg { cursor: grabbing; }
   border: 2px solid var(--px-stroke);
   background: var(--px-graybtn);
   color: var(--px-white);
-  font-size: 11px;
+  font-size: 12px;
   border-radius: 0;
   padding: 3px 7px;
   cursor: pointer;
@@ -321,7 +338,7 @@ body.dragging #petImg { cursor: grabbing; }
   transition: background 0.1s ease, transform 0.05s ease;
 }
 .skin-row button:hover { background: var(--px-graybtn-hi); transform: translate(-1px,-1px); }
-.skin-hint { font-size: 10px; color: var(--px-gray); margin: 7px 0; line-height: 1.5; }
+.skin-hint { font-size: 12px; color: var(--px-gray); margin: 7px 0; line-height: 1.5; }
 /* 皮肤工坊 · 服装区 */
 .costume-row { display: flex; align-items: center; gap: 6px; margin: 7px 0; font-size: 12px; }
 .costume-label { width: 46px; flex-shrink: 0; color: var(--px-gray); }
@@ -330,7 +347,7 @@ body.dragging #petImg { cursor: grabbing; }
   border: 2px solid var(--px-stroke);
   background: var(--px-graybtn);
   color: var(--px-white);
-  font-size: 11px;
+  font-size: 12px;
   border-radius: 0;
   padding: 4px 8px;
   cursor: pointer;
@@ -419,15 +436,19 @@ button.photo-take:active, #skinClose:active, #photoClose:active, #bagClose:activ
   z-index: 15;
 }
 #bubble.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+/* 像素阶梯尾巴：5→3→1 个 2px 方块逐层堆成阶梯尖角（替代平滑三角，对齐像素规范） */
 #bubble::after {
   content: '';
   position: absolute;
   left: 50%;
-  bottom: -8px;
-  transform: translateX(-50%);
-  border-left: 6px solid transparent;
-  border-right: 6px solid transparent;
-  border-top: 7px solid var(--px-stroke);
+  bottom: -2px;
+  width: 2px;
+  height: 2px;
+  margin-left: -1px;
+  background: var(--px-stroke);
+  box-shadow:
+    -4px -4px 0 0 var(--px-stroke), -2px -4px 0 0 var(--px-stroke), 0 -4px 0 0 var(--px-stroke), 2px -4px 0 0 var(--px-stroke), 4px -4px 0 0 var(--px-stroke),
+    -2px -2px 0 0 var(--px-stroke), 0 -2px 0 0 var(--px-stroke), 2px -2px 0 0 var(--px-stroke);
 }
 
 #indicator {
@@ -455,7 +476,7 @@ button.photo-take:active, #skinClose:active, #photoClose:active, #bagClose:activ
 #needsPanel[hidden] { display: none; }
 .panel-head { margin-bottom: 8px; padding-bottom: 6px; border-bottom: 2px solid var(--px-line); }
 .panel-title {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.5px;
   color: var(--px-yellow);
@@ -470,7 +491,7 @@ button.photo-take:active, #skinClose:active, #photoClose:active, #bagClose:activ
 }
 .bond-badge { display: flex; align-items: center; gap: 7px; margin-bottom: 5px; }
 .bond-badge span { font-size: 17px; line-height: 1; }
-.bond-badge b { font-size: 13px; color: var(--px-yellow); }
+.bond-badge b { font-size: 12px; color: var(--px-yellow); }
 /* 分段像素进度条：外层深蓝+黑描边，内层黄/绿分段块 */
 .bond-bar {
   height: 11px;
@@ -486,10 +507,10 @@ button.photo-take:active, #skinClose:active, #photoClose:active, #bagClose:activ
   background: repeating-linear-gradient(90deg, var(--px-yellow) 0 7px, var(--px-yellow-lo) 7px 9px);
   transition: width 0.6s ease;
 }
-.bond-sub { font-size: 10px; color: var(--px-gray); margin-top: 4px; min-height: 13px; }
+.bond-sub { font-size: 12px; color: var(--px-gray); margin-top: 4px; min-height: 13px; }
 .bond-abilities { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
 .bond-chip {
-  font-size: 9.5px;
+  font-size: 12px;
   color: var(--px-gray);
   background: var(--px-bg-deep);
   border: 1px solid var(--px-line);
@@ -540,14 +561,14 @@ button.photo-take:active, #skinClose:active, #photoClose:active, #bagClose:activ
 }
 .inv-icon { font-size: 22px; }
 .inv-name { color: var(--px-white); font-size: 12px; font-weight: 700; }
-.inv-count { color: var(--px-yellow); font-size: 11px; font-weight: 700; }
-.inv-desc { color: var(--px-gray); font-size: 9.5px; line-height: 1.4; min-height: 26px; }
+.inv-count { color: var(--px-yellow); font-size: 12px; font-weight: 700; }
+.inv-desc { color: var(--px-gray); font-size: 12px; line-height: 1.4; min-height: 26px; }
 .inv-card button {
   border: 2px solid var(--px-stroke);
   background: var(--px-yellow);
   color: #141a10;
   font-weight: 700;
-  font-size: 11px;
+  font-size: 12px;
   border-radius: 0;
   padding: 4px 14px;
   cursor: pointer;
@@ -570,8 +591,8 @@ button.photo-take:active, #skinClose:active, #photoClose:active, #bagClose:activ
   text-align: center;
 }
 .album-icon { font-size: 20px; }
-.album-title { color: var(--px-white); font-size: 10.5px; font-weight: 700; }
-.album-date { color: var(--px-soft); font-size: 9px; }
+.album-title { color: var(--px-white); font-size: 12px; font-weight: 700; }
+.album-date { color: var(--px-soft); font-size: 12px; }
 
 /* 像素滚动条：无圆角、深蓝轨道、黄滑块 */
 .inv-grid::-webkit-scrollbar { width: 10px; }
