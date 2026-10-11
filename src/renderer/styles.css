@@ -86,6 +86,15 @@ body.ui-open #pet {
   padding-bottom: 2px;
 }
 
+/* 显示气泡时：气泡贴窗口顶部，猫临时贴底，二者分离不遮挡 */
+body.bubble-on #pet {
+  align-items: flex-end;
+  padding-bottom: 2px;
+}
+body.bubble-on #bubble {
+  top: 2px;
+}
+
 /* 拖拽中：抓取手 */
 body.dragging #petImg { cursor: grabbing; }
 
@@ -175,6 +184,12 @@ body.dragging #petImg { cursor: grabbing; }
   gap: 4px;
   min-width: 188px;
   padding: 6px;
+  /* 自适应防溢出：任何窗口尺寸下菜单都完整可见（超高/超宽内部滚动兜底） */
+  box-sizing: border-box;
+  max-height: calc(100vh - 12px);
+  max-width: calc(100vw - 12px);
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 #menu[hidden] { display: none; }
 .menu-title {
@@ -185,8 +200,8 @@ body.dragging #petImg { cursor: grabbing; }
   border-bottom: 2px solid var(--px-line);
   margin-bottom: 2px;
 }
-/* 快捷动作区：两列网格，高频操作一眼可见 */
-.menu-quick { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 3px; }
+/* 快捷动作区：三列网格，窄窗口时按钮自适应收缩不被裁 */
+.menu-quick { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 3px; }
 .menu-quick button {
   border: 2px solid var(--px-stroke);
   background: var(--px-graybtn);

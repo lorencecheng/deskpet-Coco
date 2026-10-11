@@ -373,8 +373,19 @@
   function showBubble(text, ms) {
     bubble.textContent = text;
     bubble.classList.add('show');
+    // 气泡贴顶显示，猫临时贴底；若窗口太矮放不下，再把猫临时缩到能容纳气泡，保证绝不遮挡
+    document.body.classList.add('bubble-on');
+    requestAnimationFrame(() => {
+      const bh = bubble.offsetHeight || 0;
+      const maxOk = window.innerHeight - bh - 10;
+      if (petImg.offsetHeight > maxOk && maxOk > 60) petImg.style.maxHeight = maxOk + 'px';
+    });
     clearTimeout(bubbleTimer);
-    bubbleTimer = setTimeout(() => bubble.classList.remove('show'), ms || 6000);
+    bubbleTimer = setTimeout(() => {
+      bubble.classList.remove('show');
+      document.body.classList.remove('bubble-on');
+      petImg.style.maxHeight = '';   // 恢复 90% 的 CSS 上限
+    }, ms || 6000);
   }
 
   // ===================== 皮肤工坊：运行时调色 =====================
